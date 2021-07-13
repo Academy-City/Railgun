@@ -21,6 +21,7 @@ namespace Railgun.Runtime
         
         public AbstractFunction(string[] args, object[] body)
         {
+            // TODO: Better checks
             Args = args;
 
             if (args.Length >= 2 && args[^2] == "&")
@@ -78,16 +79,20 @@ namespace Railgun.Runtime
             Globals["true"] = true;
             Globals["false"] = false;
             NewFn("=", x => x[0].Equals(x[1]));
-            NewFn("<=", x => RailgunMath.Le(x[0], x[1]));
-            NewFn(">=", x => RailgunMath.Le(x[1], x[0]));
+
             
             NewFn("and", x => (bool) x[0] && (bool) x[1]);
             NewFn("or", x => (bool) x[0] || (bool) x[1]);
 
-            NewFn("+", x => RailgunMath.Add(x[0], x[1]));
-            NewFn("-", x => RailgunMath.Sub(x[0], x[1]));
-            NewFn("*", x => RailgunMath.Mul(x[0], x[1]));
-            NewFn("/", x => RailgunMath.Div(x[0], x[1]));
+            NewFn("+", x => (dynamic) x[0] + (dynamic) x[1]);
+            NewFn("-", x => (dynamic) x[0] - (dynamic) x[1]);
+            NewFn("*", x => (dynamic) x[0] * (dynamic) x[1]);
+            NewFn("/", x => (dynamic) x[0] / (dynamic) x[1]);
+            NewFn("<=", x => (dynamic) x[0] <= (dynamic) x[1]);
+            NewFn(">=", x => (dynamic) x[0] >= (dynamic) x[1]);
+            NewFn("<", x => (dynamic) x[0] < (dynamic) x[1]);
+            NewFn(">", x => (dynamic) x[0] > (dynamic) x[1]);
+            
             NewFn("concat", x => ((SeqExpr) x[0]).Concat((SeqExpr) x[1]));
             NewFn("print", x =>
             {
@@ -104,12 +109,10 @@ namespace Railgun.Runtime
         }
         private const string Prelude = @"
 (let let-macro (macro (name args & body)
-    `(let ,name ,(concat `(macro ,args) body))
-))
+    `(let ,name ,(concat `(macro ,args) body))))
 
 (let-macro let-fn (name args & body)
-    `(let ,name ,(concat `(fn ,args) body))
-)
+    `(let ,name ,(concat `(fn ,args) body)))
 ";
 
         public void SetupArgs(AbstractFunction fn, object[] args, RailgunEnvironment env)

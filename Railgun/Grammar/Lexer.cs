@@ -7,6 +7,8 @@ namespace Railgun.Grammar
     {
         LParen,
         RParen,
+        LBracket,
+        RBracket,
         
         NameSymbol,
         Numeric,
@@ -21,7 +23,7 @@ namespace Railgun.Grammar
     
     public class Lexer
     {
-        private int _pos = 0;
+        private int _pos;
         private readonly string _source;
         private char Current => _source[_pos];
         private bool Eof => _pos >= _source.Length;
@@ -60,12 +62,14 @@ namespace Railgun.Grammar
                 {
                     list.Add(Name());
                 }
-                else if ("()'`,".Contains(Current))
+                else if ("()[]'`,".Contains(Current))
                 {
                     list.Add(Current switch
                     {
                         '(' => new Token(TokenType.LParen, ""),
                         ')' => new Token(TokenType.RParen, ""),
+                        '[' => new Token(TokenType.LBracket, ""),
+                        ']' => new Token(TokenType.RBracket, ""),
                         '\'' => new Token(TokenType.Quote, ""),
                         '`' => new Token(TokenType.Quasiquote, ""), 
                         ',' => new Token(TokenType.Unquote, ""),
@@ -89,7 +93,7 @@ namespace Railgun.Grammar
             return c;
         }
 
-        private bool IsSymbol(char c, bool start = false)
+        private static bool IsSymbol(char c, bool start = false)
         {
             if (start && char.IsNumber(c)) return false;
 
