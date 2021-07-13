@@ -20,7 +20,6 @@ namespace Railgun
         [Command("repl")]
         public void Repl()
         {
-            
             var runtime = new RailgunRuntime();
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Welcome to the Railgun REPL!");
@@ -64,12 +63,13 @@ namespace Railgun
         {
             var program = File.ReadAllText(path);
             return new Parser(program).ParseProgram();
-
         }
         
         [Command("run")]
         public void Run()
         {
+            // var l = new Cell(1, new Cell(3, new Cell(5, null)));
+            // Console.WriteLine(JsonConvert.SerializeObject(l.ToList()));
             var runtime = new RailgunRuntime();
             var workingDir = Directory.GetCurrentDirectory();
             

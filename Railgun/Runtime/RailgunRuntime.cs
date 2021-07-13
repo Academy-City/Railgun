@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Railgun.Grammar;
+using Railgun.Types;
 
 namespace Railgun.Runtime
 {
@@ -14,7 +15,7 @@ namespace Railgun.Runtime
         }
     }
     
-    public abstract class AbstractFunction {
+    public abstract class AbstractFunction : IRailgunFnLike {
         public string[] Args { get; }
         public string IsVariadic { get; } = "";
         public object[] Body { get; }
@@ -31,21 +32,62 @@ namespace Railgun.Runtime
             }
             Body = body;
         }
+        
+        protected void SetupArgs(object[] args, RailgunEnvironment env)
+        {
+            if (args.Length != Args.Length && IsVariadic != "" && args.Length < Args.Length)
+            {
+                throw new RailgunRuntimeException(
+                    $"Wrong number of args: Requested {Args.Length}, Got {args.Length}");
+            }
+            for (var i = 0; i < Args.Length; i++)
+            {
+                env[Args[i]] = args[i];
+            }
+
+            if (IsVariadic != "")
+            {
+                env[IsVariadic] = new SeqExpr(args.Skip(Args.Length).ToImmutableList());
+            }
+        }
+        
+        public object Eval(RailgunRuntime runtime, RailgunEnvironment env, object[] args)
+        {
+            env = new RailgunEnvironment(env);
+            SetupArgs(args, env);
+            
+            object r = null;
+            foreach (var expr in Body)
+            {
+                r = runtime.Eval(expr, env);
+            }
+            return r;
+        }
     }
-    
-    public class RailgunFn : AbstractFunction
+
+    public interface IRailgunFnLike
     {
-        public RailgunFn(string[] args, object[] body) : base(args, body)
-        { }
+        public object Eval(RailgunRuntime runtime, RailgunEnvironment env, object[] args);
+    }
+
+    public interface IRailgunFn : IRailgunFnLike
+    { }
+
+    public interface IRailgunMacro : IRailgunFnLike
+    { }
+    
+    public class RailgunFn : AbstractFunction, IRailgunFn
+    {
+        public RailgunFn(string[] args, object[] body) : base(args, body) {}
     }
     
-    public class RailgunMacro: AbstractFunction
+    public class RailgunMacro: AbstractFunction, IRailgunMacro
     {
         public RailgunMacro(string[] args, object[] body) : base(args, body)
         { }
     }
 
-    public sealed class BuiltinFn
+    public sealed class BuiltinFn : IRailgunFn
     {
         public Func<object[], object> Body { get; }
 
@@ -53,15 +95,10 @@ namespace Railgun.Runtime
         {
             Body = body;
         }
-    }
-    
-    public sealed class BuiltinMacro
-    {
-        public Func<object[], object> Body { get; }
 
-        public BuiltinMacro(Func<object[], object> body)
+        public object Eval(RailgunRuntime runtime, RailgunEnvironment env, object[] args)
         {
-            Body = body;
+            return Body(args);
         }
     }
 
@@ -115,7 +152,7 @@ namespace Railgun.Runtime
     `(let ,name ,(concat `(fn ,args) body)))
 ";
 
-        public void SetupArgs(AbstractFunction fn, object[] args, RailgunEnvironment env)
+        private static void SetupArgs(AbstractFunction fn, object[] args, RailgunEnvironment env)
         {
             if (args.Length != fn.Args.Length
                 && (fn.IsVariadic != "" && args.Length < fn.Args.Length))
@@ -134,33 +171,6 @@ namespace Railgun.Runtime
             }
         }
 
-        public object EvalFunction(RailgunEnvironment env, RailgunFn fn, object[] args)
-        {
-            env = new RailgunEnvironment(env);
-            SetupArgs(fn, args, env);
-            
-            object r = null;
-            foreach (var expr in fn.Body)
-            {
-                r = Eval(expr, env);
-            }
-            return r;
-        }
-
-        public object EvalMacro(RailgunEnvironment env, RailgunMacro mac, object[] args)
-        {
-            env = new RailgunEnvironment(env);
-            SetupArgs(mac, args, env);
-
-            object r = null;
-
-            foreach (var expr in mac.Body)
-            {
-                r = Eval(expr, env);
-            }
-            return r;
-        }
-        
         // evaluates unquoted values inside quasiquotes
         // eval is only allowed at depth 0
         private object EvalQuasiquote(object ex, RailgunEnvironment env, int depth = 0)
@@ -208,14 +218,14 @@ namespace Railgun.Runtime
                 // after the first expansion, recursively expand
                 SeqExpr seq when seq.Children.Count >= 1 && TryGetMacro(seq[0], env, out var m)
                     && qqDepth == 0 => ExpandMacros(
-                    EvalMacro(env, m, seq.Children.Skip(1).ToArray()), env, qqDepth
+                    m.Eval(this, env, seq.Children.Skip(1).ToArray()), env, qqDepth
                 ),
                 SeqExpr seq => seq.Map(x => ExpandMacros(x, env, qqDepth)),
                 _ => ex
             };
         }
 
-        public object Eval(object ex, RailgunEnvironment? env = null, bool topLevel = false)
+        public object Eval(object ex, RailgunEnvironment env = null, bool topLevel = false)
         {
             env ??= Globals;
             if (topLevel)
@@ -282,13 +292,10 @@ namespace Railgun.Runtime
                     var fn = Eval(seq.Children[0], env);
                     switch (fn)
                     {
-                        case BuiltinFn bfn:
-                            return bfn.Body(seq.Children.Skip(1).Select(x => Eval(x, env)).ToArray());
-                        case RailgunFn lfn:
-                            var arr = seq.Children.Skip(1)
-                                .Select(x => Eval(x, env)).ToArray();
-                            return EvalFunction(env, lfn, arr);
-                        case RailgunMacro:
+                        case IRailgunFn lfn:
+                            var arr = seq.Children.Skip(1).Select(x => Eval(x, env)).ToArray();
+                            return lfn.Eval(this, env, arr);
+                        case IRailgunMacro:
                             throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                         default:
                             throw new RailgunRuntimeException("Not a function");
