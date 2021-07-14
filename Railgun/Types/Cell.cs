@@ -1,37 +1,43 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
 namespace Railgun.Types
 {
-    public record Cell(object Head, Cell Tail)
+    public abstract record Seq : IEnumerable<object>
     {
-        public Cell Create(IEnumerable<object> list)
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        public IEnumerator<object> GetEnumerator()
         {
-            return list.Reverse()
-                .Aggregate<object, Cell>(null, (current, item) => new Cell(item, current));
-        }
-        
-        public static IEnumerable<object> Iterate(Cell o)
-        {
-            while (o != null)
+            var t = this;
+            while (t is Cell c)
             {
-                o = o.Tail;
-                yield return o;
+                yield return c.Head;
+                t = c.Tail;
             }
         }
-    }
+        
+        public static Seq Create(IEnumerable<object> list)
+        {
+            return list.Reverse()
+                .Aggregate<object, Seq>(new Nil(), (current, item) => new Cell(item, current));
+        }
 
+    }
+    
+    public record Nil : Seq;
+    public record Cell(object Head, Seq Tail) : Seq;
+
+    // [Obsolete("replace with cellbased lists", true)]
     public record SeqExpr(ImmutableList<object> Children)
     {
         public override string ToString()
         {
             return $"({string.Join(' ', Children.Select(x => x.ToString()))})";
         }
-
-        public object Head => Children[0];
-
+        
         public SeqExpr Concat(SeqExpr right)
         {
             return new(Children.Concat(right.Children).ToImmutableList());
