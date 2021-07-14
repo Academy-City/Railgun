@@ -59,7 +59,7 @@ namespace Railgun
             }
         }
 
-        private object[] ReadProgram(string path)
+        private static object[] ReadProgram(string path)
         {
             var program = File.ReadAllText(path);
             return new Parser(program).ParseProgram();

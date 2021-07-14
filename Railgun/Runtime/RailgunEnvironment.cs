@@ -2,12 +2,18 @@
 
 namespace Railgun.Runtime
 {
-    public class RailgunEnvironment
+    public interface IEnvironment
     {
-        private readonly RailgunEnvironment _parent;
+        object this[string key] { get; set; }
+        object Set(string key, object value);
+    }
+    
+    public class RailgunEnvironment : IEnvironment
+    {
+        private readonly IEnvironment _parent;
         private readonly Dictionary<string, object> _dict = new();
 
-        public RailgunEnvironment(RailgunEnvironment parent = null)
+        public RailgunEnvironment(IEnvironment parent = null)
         {
             _parent = parent;
         }

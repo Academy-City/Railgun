@@ -16,12 +16,14 @@ namespace Railgun.Runtime
     }
     
     public abstract class AbstractFunction : IRailgunFnLike {
+        private readonly IEnvironment _env;
         public string[] Args { get; }
         public string IsVariadic { get; } = "";
         public object[] Body { get; }
         
-        public AbstractFunction(string[] args, object[] body)
+        public AbstractFunction(IEnvironment env, string[] args, object[] body)
         {
+            _env = env;
             // TODO: Better checks
             Args = args;
 
@@ -33,7 +35,7 @@ namespace Railgun.Runtime
             Body = body;
         }
         
-        protected void SetupArgs(object[] args, RailgunEnvironment env)
+        protected void SetupArgs(object[] args, IEnvironment env)
         {
             if (args.Length != Args.Length && IsVariadic != "" && args.Length < Args.Length)
             {
@@ -51,9 +53,9 @@ namespace Railgun.Runtime
             }
         }
         
-        public object Eval(RailgunRuntime runtime, RailgunEnvironment env, object[] args)
+        public object Eval(RailgunRuntime runtime, object[] args)
         {
-            env = new RailgunEnvironment(env);
+            var env = new RailgunEnvironment(_env);
             SetupArgs(args, env);
             
             object r = null;
@@ -67,7 +69,7 @@ namespace Railgun.Runtime
 
     public interface IRailgunFnLike
     {
-        public object Eval(RailgunRuntime runtime, RailgunEnvironment env, object[] args);
+        public object Eval(RailgunRuntime runtime, object[] args);
     }
 
     public interface IRailgunFn : IRailgunFnLike
@@ -78,13 +80,12 @@ namespace Railgun.Runtime
     
     public class RailgunFn : AbstractFunction, IRailgunFn
     {
-        public RailgunFn(string[] args, object[] body) : base(args, body) {}
+        public RailgunFn(IEnvironment env, string[] args, object[] body) : base(env, args, body) {}
     }
     
     public class RailgunMacro: AbstractFunction, IRailgunMacro
     {
-        public RailgunMacro(string[] args, object[] body) : base(args, body)
-        { }
+        public RailgunMacro(IEnvironment env, string[] args, object[] body) : base(env, args, body) {}
     }
 
     public sealed class BuiltinFn : IRailgunFn
@@ -96,7 +97,7 @@ namespace Railgun.Runtime
             Body = body;
         }
 
-        public object Eval(RailgunRuntime runtime, RailgunEnvironment env, object[] args)
+        public object Eval(RailgunRuntime runtime, object[] args)
         {
             return Body(args);
         }
@@ -159,7 +160,7 @@ namespace Railgun.Runtime
 
         // evaluates unquoted values inside quasiquotes
         // eval is only allowed at depth 0
-        private object EvalQuasiquote(object ex, RailgunEnvironment env, int depth = 0)
+        private object EvalQuasiquote(object ex, IEnvironment env, int depth = 0)
         {
             return ex switch
             {
@@ -170,7 +171,7 @@ namespace Railgun.Runtime
             };
         }
 
-        private static bool TryGetMacro(object ex, RailgunEnvironment env, out RailgunMacro mac)
+        private static bool TryGetMacro(object ex, IEnvironment env, out RailgunMacro mac)
         {
             mac = null;
             switch (ex)
@@ -193,7 +194,7 @@ namespace Railgun.Runtime
             return false;
         }
 
-        public object ExpandMacros(object ex, RailgunEnvironment env, int qqDepth = 0)
+        public object ExpandMacros(object ex, IEnvironment env, int qqDepth = 0)
         {
             // no eval, just replace macros as you see, except when in qqDepth
             return ex switch
@@ -204,14 +205,14 @@ namespace Railgun.Runtime
                 // after the first expansion, recursively expand
                 SeqExpr seq when seq.Children.Count >= 1 && TryGetMacro(seq[0], env, out var m)
                     && qqDepth == 0 => ExpandMacros(
-                    m.Eval(this, env, seq.Children.Skip(1).ToArray()), env, qqDepth
+                    m.Eval(this, seq.Children.Skip(1).ToArray()), env, qqDepth
                 ),
                 SeqExpr seq => seq.Map(x => ExpandMacros(x, env, qqDepth)),
                 _ => ex
             };
         }
 
-        public object Eval(object ex, RailgunEnvironment env = null, bool topLevel = false)
+        public object Eval(object ex, IEnvironment env = null, bool topLevel = false)
         {
             env ??= Globals;
             if (topLevel)
@@ -262,6 +263,7 @@ namespace Railgun.Runtime
                                 return null;
                             case "fn":
                                 return new RailgunFn(
+                                    env,
                                     ((List<object>) seq[1])
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
@@ -269,6 +271,7 @@ namespace Railgun.Runtime
                                 );
                             case "macro":
                                 return new RailgunMacro(
+                                    env,
                                     ((List<object>) seq.Children[1])
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
@@ -280,7 +283,7 @@ namespace Railgun.Runtime
                     {
                         case IRailgunFn lfn:
                             var arr = seq.Children.Skip(1).Select(x => Eval(x, env)).ToArray();
-                            return lfn.Eval(this, env, arr);
+                            return lfn.Eval(this, arr);
                         case IRailgunMacro:
                             throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                         default:
