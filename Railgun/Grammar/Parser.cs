@@ -17,11 +17,6 @@ namespace Railgun.Grammar
             _tokens = lexer.Lex();
         }
 
-        public Parser(List<Token> tokens)
-        {
-            _tokens = tokens;
-        }
-
         private Token Next()
         {
             var current = Current;
@@ -55,8 +50,11 @@ namespace Railgun.Grammar
             switch (Current.Kind)
             {
                 case TokenType.LParen:
+                    return ParseSequence();
+                case TokenType.LBracket:
                     return ParseList();
                 case TokenType.RParen:
+                case TokenType.RBracket:
                     throw new NotImplementedException();
                 case TokenType.Quote:
                     _pos++;
@@ -78,16 +76,26 @@ namespace Railgun.Grammar
             }
         }
 
-        public SeqExpr ParseList()
+        private List<object> ParseCollection(TokenType left, TokenType right)
         {
             var list = new List<object>();
-            MustBe(TokenType.LParen);
-            while (Current.Kind != TokenType.RParen)
+            MustBe(left);
+            while (Current.Kind != right)
             {
                 list.Add(ParseExpr());
             }
-            MustBe(TokenType.RParen);
-            return new SeqExpr(list.ToImmutableList());
+            MustBe(right);
+            return list;
+        }
+
+        public List<object> ParseList()
+        {
+            return ParseCollection(TokenType.LBracket, TokenType.RBracket);
+        }
+
+        public SeqExpr ParseSequence()
+        {
+            return new(ParseCollection(TokenType.LParen, TokenType.RParen).ToImmutableList());
         }
     }
 }

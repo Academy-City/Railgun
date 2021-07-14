@@ -10,6 +10,7 @@
 
     <ItemGroup>
       <PackageReference Include="Cocona" Version="1.5.0" />
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.0.0-1.final" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     </ItemGroup>
 

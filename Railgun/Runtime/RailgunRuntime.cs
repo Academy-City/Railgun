@@ -131,6 +131,11 @@ namespace Railgun.Runtime
             NewFn(">", x => (dynamic) x[0] > (dynamic) x[1]);
             
             NewFn("concat", x => ((SeqExpr) x[0]).Concat((SeqExpr) x[1]));
+            NewFn("repr", x =>
+            {
+                Console.WriteLine(RailgunLibrary.Repr(x[0]));
+                return null;
+            });
             NewFn("print", x =>
             {
                 Console.WriteLine(x[0]);
@@ -145,31 +150,12 @@ namespace Railgun.Runtime
             RunProgram(new Parser(Prelude).ParseProgram());
         }
         private const string Prelude = @"
-(let let-macro (macro (name args & body)
+(let let-macro (macro [name args & body]
     `(let ,name ,(concat `(macro ,args) body))))
 
-(let-macro let-fn (name args & body)
+(let-macro let-fn [name args & body]
     `(let ,name ,(concat `(fn ,args) body)))
 ";
-
-        private static void SetupArgs(AbstractFunction fn, object[] args, RailgunEnvironment env)
-        {
-            if (args.Length != fn.Args.Length
-                && (fn.IsVariadic != "" && args.Length < fn.Args.Length))
-            {
-                throw new RailgunRuntimeException(
-                    $"Wrong number of args: Requested {fn.Args.Length}, Got {args.Length}");
-            }
-            for (var i = 0; i < fn.Args.Length; i++)
-            {
-                env[fn.Args[i]] = args[i];
-            }
-
-            if (fn.IsVariadic != "")
-            {
-                env[fn.IsVariadic] = new SeqExpr(args.Skip(fn.Args.Length).ToImmutableList());
-            }
-        }
 
         // evaluates unquoted values inside quasiquotes
         // eval is only allowed at depth 0
@@ -251,13 +237,6 @@ namespace Railgun.Runtime
                                 return env[((NameExpr) seq[1]).Name] = Eval(seq[2], env);
                             case "set":
                                 return env.Set(((NameExpr) seq[1]).Name, Eval(seq[2], env));
-                            case "fn":
-                                return new RailgunFn(
-                                    ((SeqExpr) seq[1]).Children
-                                        .Select(x => ((NameExpr) x).Name)
-                                        .ToArray(),
-                                    seq.Children.Skip(2).ToArray()
-                                );
                             case "if":
                                 var ifCond = (bool) Eval(seq.Children[1], env);
                                 if (ifCond) return Eval(seq.Children[2], env);
@@ -281,9 +260,16 @@ namespace Railgun.Runtime
                                     }
                                 }
                                 return null;
+                            case "fn":
+                                return new RailgunFn(
+                                    ((List<object>) seq[1])
+                                    .Select(x => ((NameExpr) x).Name)
+                                    .ToArray(),
+                                    seq.Children.Skip(2).ToArray()
+                                );
                             case "macro":
                                 return new RailgunMacro(
-                                    ((SeqExpr) seq.Children[1]).Children
+                                    ((List<object>) seq.Children[1])
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
                                     seq.Children.Skip(2).ToArray());
