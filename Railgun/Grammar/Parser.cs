@@ -93,9 +93,9 @@ namespace Railgun.Grammar
             return ParseCollection(TokenType.LBracket, TokenType.RBracket);
         }
 
-        public SeqExpr ParseSequence()
+        public Seq ParseSequence()
         {
-            return new(ParseCollection(TokenType.LParen, TokenType.RParen).ToImmutableList());
+            return Seq.Create(ParseCollection(TokenType.LParen, TokenType.RParen));
         }
     }
 }

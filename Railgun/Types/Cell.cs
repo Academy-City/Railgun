@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 
 namespace Railgun.Types
@@ -18,7 +17,25 @@ namespace Railgun.Types
                 t = c.Tail;
             }
         }
-        
+
+        public (object[], Seq) TakeN(int n)
+        {
+            var r = this;
+            var res = new object[n];
+            for (var i = 0; i < n; i++)
+            {
+                var (head, tail) = (Cell) r;
+                res[i] = head;
+                r = tail;
+            }
+            return (res, r);
+        }
+
+        public Seq Map(Func<object, object> fn)
+        {
+            return Create(this.Select(fn));
+        }
+
         public static Seq Create(IEnumerable<object> list)
         {
             return list.Reverse()
@@ -29,25 +46,4 @@ namespace Railgun.Types
     
     public record Nil : Seq;
     public record Cell(object Head, Seq Tail) : Seq;
-
-    // [Obsolete("replace with cellbased lists", true)]
-    public record SeqExpr(ImmutableList<object> Children)
-    {
-        public override string ToString()
-        {
-            return $"({string.Join(' ', Children.Select(x => x.ToString()))})";
-        }
-        
-        public SeqExpr Concat(SeqExpr right)
-        {
-            return new(Children.Concat(right.Children).ToImmutableList());
-        }
-
-        public SeqExpr Map(Func<object, object> fn)
-        {
-            return new(Children.Select(fn).ToImmutableList());
-        }
-
-        public object this[int index] => Children[index];
-    }
 }

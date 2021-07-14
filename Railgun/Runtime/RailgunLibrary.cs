@@ -11,7 +11,9 @@ namespace Railgun.Runtime
         {
             return o switch
             {
-                SeqExpr s => "[" + string.Join(" ", s.Children.Select(Repr)) + "]",
+                Seq s => "(" + string.Join(" ", s.Select(Repr)) + ")",
+                QuoteExpr q => (q.IsQuasiquote ? "`" : "'") + Repr(q.Value),
+                UnquoteExpr uq => "," + Repr(uq.Value),
                 List<object> l => "[" + string.Join(" ", l.Select(Repr)) + "]",
                 string s => SymbolDisplay.FormatLiteral(s, true),
                 _ => o.ToString()

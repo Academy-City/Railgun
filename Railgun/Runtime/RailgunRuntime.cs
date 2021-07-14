@@ -49,7 +49,7 @@ namespace Railgun.Runtime
 
             if (IsVariadic != "")
             {
-                env[IsVariadic] = new SeqExpr(args.Skip(Args.Length).ToImmutableList());
+                env[IsVariadic] = Seq.Create(args.Skip(Args.Length));
             }
         }
         
@@ -131,7 +131,9 @@ namespace Railgun.Runtime
             NewFn("<", x => (dynamic) x[0] < (dynamic) x[1]);
             NewFn(">", x => (dynamic) x[0] > (dynamic) x[1]);
             
-            NewFn("concat", x => ((SeqExpr) x[0]).Concat((SeqExpr) x[1]));
+            NewFn("concat", x => Seq.Create(
+                ((Seq) x[0]).Concat((Seq) x[1])
+            ));
             NewFn("repr", x => RailgunLibrary.Repr(x[0]));
             NewFn("print", x =>
             {
@@ -165,7 +167,7 @@ namespace Railgun.Runtime
             {
                 QuoteExpr {IsQuasiquote: true} qex => EvalQuasiquote(qex.Value, env, depth + 1),
                 UnquoteExpr uex => EvalQuasiquote(uex.Value, env, depth - 1),
-                SeqExpr seq when depth != 0 => seq.Map(x => EvalQuasiquote(x, env, depth)),
+                Seq seq when depth != 0 => seq.Map(x => EvalQuasiquote(x, env, depth)),
                 _ => depth == 0 ? Eval(ex, env) : ex
             };
         }
@@ -202,11 +204,11 @@ namespace Railgun.Runtime
                     new QuoteExpr(ExpandMacros(qex.Value, env, qqDepth + 1), true),
                 UnquoteExpr uex => new UnquoteExpr(ExpandMacros(uex.Value, env, qqDepth - 1)),
                 // after the first expansion, recursively expand
-                SeqExpr seq when seq.Children.Count >= 1 && TryGetMacro(seq[0], env, out var m)
+                Cell c when TryGetMacro(c.Head, env, out var m)
                     && qqDepth == 0 => ExpandMacros(
-                    m.Eval(this, seq.Children.Skip(1).ToArray()), env, qqDepth
+                    m.Eval(this, c.Tail.ToArray()), env, qqDepth
                 ),
-                SeqExpr seq => seq.Map(x => ExpandMacros(x, env, qqDepth)),
+                Seq seq => seq.Map(x => ExpandMacros(x, env, qqDepth)),
                 _ => ex
             };
         }
@@ -227,32 +229,36 @@ namespace Railgun.Runtime
                     return q.IsQuasiquote ? EvalQuasiquote(q, env) : q.Value;
                 case UnquoteExpr:
                     throw new RailgunRuntimeException("Unquote is not allowed outside of quasiquotes");
-                case SeqExpr seq: // function-like
+                case Cell seq: // function-like
                     // TODO: keyword check
-                    if (seq[0] is NameExpr n)
+                    if (seq.Head is NameExpr n)
                     {
+                        var rest = seq.Tail;
+                        var r = seq.Tail.ToList();
                         switch (n.Name)
                         {
                             case "let":
-                                return env[((NameExpr) seq[1]).Name] = Eval(seq[2], env);
+                                var (letVars, _) = rest.TakeN(2);
+                                return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);
                             case "set":
-                                return env.Set(((NameExpr) seq[1]).Name, Eval(seq[2], env));
+                                var (setVars, _) = rest.TakeN(2);
+                                return env.Set(((NameExpr) setVars[0]).Name, Eval(setVars[1], env));
                             case "if":
-                                var ifCond = (bool) Eval(seq.Children[1], env);
-                                if (ifCond) return Eval(seq.Children[2], env);
-                                return seq.Children.Count >= 4 ? Eval(seq.Children[3], env) : null;
+                                var (ifVars, elseTail) = rest.TakeN(2);
+                                var ifCond = (bool) Eval(ifVars[0], env);
+                                if (ifCond) return Eval(ifVars[1], env);
+                                return elseTail is Cell ec ? Eval(ec.Head, env) : null;
                             case "do":
                                 var nenv = new RailgunEnvironment(env);
                                 object doRet = null;
-                                foreach (var e in seq.Children.Skip(1))
+                                foreach (var e in rest)
                                 {
                                     doRet = Eval(e, nenv);
                                 }
                                 return doRet;
                             case "while":
-                                var wcond = seq[1];
-                                var wbody = seq.Children.Skip(2).ToArray();
-                                while ((bool) Eval(wcond, env))
+                                var (wcond, wbody) = rest.TakeN(1);
+                                while ((bool) Eval(wcond[0], env))
                                 {
                                     foreach (var x in wbody)
                                     {
@@ -261,32 +267,36 @@ namespace Railgun.Runtime
                                 }
                                 return null;
                             case "fn":
+                                var (fnArgs, fnBody) = rest.TakeN(1);
                                 return new RailgunFn(
                                     env,
-                                    ((List<object>) seq[1])
+                                    ((List<object>) fnArgs[0])
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
-                                    seq.Children.Skip(2).ToArray()
+                                    fnBody.ToArray()
                                 );
                             case "macro":
+                                var (macArgs, macBody) = rest.TakeN(1);
                                 return new RailgunMacro(
                                     env,
-                                    ((List<object>) seq.Children[1])
+                                    ((List<object>) macArgs[0])
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
-                                    seq.Children.Skip(2).ToArray());
+                                    macBody.ToArray());
                         }
                     }
-                    var fn = Eval(seq.Children[0], env);
+                    var fn = Eval(seq.Head, env);
                     switch (fn)
                     {
                         case IRailgunFn lfn:
-                            var arr = seq.Children.Skip(1).Select(x => Eval(x, env)).ToArray();
-                            return lfn.Eval(this, arr);
+                            var fnArgs = seq.Tail.Select(x => Eval(x, env)).ToArray();
+                            return lfn.Eval(this, fnArgs);
                         case IRailgunMacro:
                             throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                         default:
-                            throw new RailgunRuntimeException("Not a function");
+                            // Console.WriteLine(fn);
+                            Console.WriteLine(fn.GetType().Name);
+                            throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
                     }
                 default:
                     return ex;
