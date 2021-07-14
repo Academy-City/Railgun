@@ -97,7 +97,7 @@ namespace Railgun.Grammar
         {
             if (start && char.IsNumber(c)) return false;
 
-            return char.IsLetterOrDigit(c) || "=+-*/!?_<>&".Contains(c);
+            return char.IsLetterOrDigit(c) || "=+-*/!?_<|>&".Contains(c);
         }
 
         private void MustBe(char c)

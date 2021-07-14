@@ -10,10 +10,6 @@ namespace Railgun
     {
         public static void Main(string[] args)
         {
-            // var program = File.ReadAllText("./scratch/main.rg");
-            // var p = new Parser(program).ParseProgram();
-            // var runtime = new RailgunRuntime();
-            // runtime.RunProgram(p);
             CoconaApp.Run<Program>(args);
         }
 

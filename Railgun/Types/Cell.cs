@@ -1,25 +1,26 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
 namespace Railgun.Types
 {
-    public record Cell(object Head, object Tail): IEnumerable<object>
+    public record Cell(object Head, Cell Tail)
     {
-        // TODO: is Null a List?
-        public IEnumerator<object> GetEnumerator()
+        public Cell Create(IEnumerable<object> list)
         {
-            var current = (object) this;
-            while (current is Cell tt)
+            return list.Reverse()
+                .Aggregate<object, Cell>(null, (current, item) => new Cell(item, current));
+        }
+        
+        public static IEnumerable<object> Iterate(Cell o)
+        {
+            while (o != null)
             {
-                yield return tt.Head;
-                current = tt.Tail;
+                o = o.Tail;
+                yield return o;
             }
         }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     public record SeqExpr(ImmutableList<object> Children)

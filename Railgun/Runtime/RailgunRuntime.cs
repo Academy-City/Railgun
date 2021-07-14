@@ -132,22 +132,21 @@ namespace Railgun.Runtime
             NewFn(">", x => (dynamic) x[0] > (dynamic) x[1]);
             
             NewFn("concat", x => ((SeqExpr) x[0]).Concat((SeqExpr) x[1]));
-            NewFn("repr", x =>
-            {
-                Console.WriteLine(RailgunLibrary.Repr(x[0]));
-                return null;
-            });
+            NewFn("repr", x => RailgunLibrary.Repr(x[0]));
             NewFn("print", x =>
             {
                 Console.WriteLine(x[0]);
                 return null;
             });
-            NewFn("debugmac", x =>
-            {
-                Console.WriteLine(ExpandMacros(x[0], Globals));
-                return null;
-            });
+            NewFn("debugmac", x => ExpandMacros(x[0], Globals));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
+            NewFn("|>", x =>
+            {
+                return x.Skip(1)
+                    .Aggregate(x[0], 
+                        (current, fn) => ((IRailgunFn) fn)
+                            .Eval(this, new[] {current}));
+            });
             RunProgram(new Parser(Prelude).ParseProgram());
         }
         private const string Prelude = @"
