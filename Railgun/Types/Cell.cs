@@ -39,11 +39,14 @@ namespace Railgun.Types
         public static Seq Create(IEnumerable<object> list)
         {
             return list.Reverse()
-                .Aggregate<object, Seq>(new Nil(), (current, item) => new Cell(item, current));
+                .Aggregate<object, Seq>(Nil.Value, (current, item) => new Cell(item, current));
         }
-
     }
-    
-    public record Nil : Seq;
+
+    public record Nil : Seq
+    {
+        private Nil() { }
+        public static readonly Nil Value = new Nil();
+    }
     public record Cell(object Head, Seq Tail) : Seq;
 }

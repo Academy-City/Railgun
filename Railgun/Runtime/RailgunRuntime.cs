@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using Railgun.Grammar;
 using Railgun.Types;
@@ -15,17 +14,26 @@ namespace Railgun.Runtime
         }
     }
     
-    public abstract class AbstractFunction : IRailgunFnLike {
+    public interface IRailgunFn
+    {
+        public object Eval(RailgunRuntime runtime, Seq args);
+        public bool IsMacro { get; }
+    }
+    
+    public class RailgunFn : IRailgunFn {
         private readonly IEnvironment _env;
         public string[] Args { get; }
         public string IsVariadic { get; } = "";
         public object[] Body { get; }
+
+        public bool IsMacro { get; }
         
-        public AbstractFunction(IEnvironment env, string[] args, object[] body)
+        public RailgunFn(IEnvironment env, string[] args, object[] body, bool isMacro = false)
         {
             _env = env;
             // TODO: Better checks
             Args = args;
+            IsMacro = isMacro;
 
             if (args.Length >= 2 && args[^2] == "&")
             {
@@ -53,10 +61,10 @@ namespace Railgun.Runtime
             }
         }
         
-        public object Eval(RailgunRuntime runtime, object[] args)
+        public object Eval(RailgunRuntime runtime, Seq args)
         {
             var env = new RailgunEnvironment(_env);
-            SetupArgs(args, env);
+            SetupArgs(args.ToArray(), env);
             
             object r = null;
             foreach (var expr in Body)
@@ -67,39 +75,20 @@ namespace Railgun.Runtime
         }
     }
 
-    public interface IRailgunFnLike
-    {
-        public object Eval(RailgunRuntime runtime, object[] args);
-    }
-
-    public interface IRailgunFn : IRailgunFnLike
-    { }
-
-    public interface IRailgunMacro : IRailgunFnLike
-    { }
-    
-    public class RailgunFn : AbstractFunction, IRailgunFn
-    {
-        public RailgunFn(IEnvironment env, string[] args, object[] body) : base(env, args, body) {}
-    }
-    
-    public class RailgunMacro: AbstractFunction, IRailgunMacro
-    {
-        public RailgunMacro(IEnvironment env, string[] args, object[] body) : base(env, args, body) {}
-    }
-
     public sealed class BuiltinFn : IRailgunFn
     {
         public Func<object[], object> Body { get; }
+        public bool IsMacro { get; }
 
-        public BuiltinFn(Func<object[], object> body)
+        public BuiltinFn(Func<object[], object> body, bool isMacro = false)
         {
             Body = body;
+            IsMacro = isMacro;
         }
 
-        public object Eval(RailgunRuntime runtime, object[] args)
+        public object Eval(RailgunRuntime runtime, Seq args)
         {
-            return Body(args);
+            return Body(args.ToArray());
         }
     }
 
@@ -142,13 +131,8 @@ namespace Railgun.Runtime
             });
             NewFn("debugmac", x => ExpandMacros(x[0], Globals));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
-            NewFn("|>", x =>
-            {
-                return x.Skip(1)
-                    .Aggregate(x[0], 
-                        (current, fn) => ((IRailgunFn) fn)
-                            .Eval(this, new[] {current}));
-            });
+            NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
+                (cx, fn) => ((IRailgunFn) fn).Eval(this, new Cell(cx, Nil.Value))));
             RunProgram(new Parser(Prelude).ParseProgram());
         }
         private const string Prelude = @"
@@ -172,18 +156,18 @@ namespace Railgun.Runtime
             };
         }
 
-        private static bool TryGetMacro(object ex, IEnvironment env, out RailgunMacro mac)
+        private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunFn mac)
         {
             mac = null;
             switch (ex)
             {
-                case RailgunMacro m:
+                case IRailgunFn{IsMacro: true} m:
                     mac = m;
                     return true;
                 case NameExpr nex:
                 {
                     var x = env[nex.Name];
-                    if (x is RailgunMacro m2)
+                    if (x is IRailgunFn{IsMacro: true} m2)
                     {
                         mac = m2;
                         return true;
@@ -206,7 +190,7 @@ namespace Railgun.Runtime
                 // after the first expansion, recursively expand
                 Cell c when TryGetMacro(c.Head, env, out var m)
                     && qqDepth == 0 => ExpandMacros(
-                    m.Eval(this, c.Tail.ToArray()), env, qqDepth
+                    m.Eval(this, c.Tail), env, qqDepth
                 ),
                 Seq seq => seq.Map(x => ExpandMacros(x, env, qqDepth)),
                 _ => ex
@@ -234,7 +218,6 @@ namespace Railgun.Runtime
                     if (seq.Head is NameExpr n)
                     {
                         var rest = seq.Tail;
-                        var r = seq.Tail.ToList();
                         switch (n.Name)
                         {
                             case "let":
@@ -267,35 +250,29 @@ namespace Railgun.Runtime
                                 }
                                 return null;
                             case "fn":
+                            case "macro":
                                 var (fnArgs, fnBody) = rest.TakeN(1);
                                 return new RailgunFn(
                                     env,
                                     ((List<object>) fnArgs[0])
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
-                                    fnBody.ToArray()
+                                    fnBody.ToArray(),
+                                    n.Name == "macro"
                                 );
-                            case "macro":
-                                var (macArgs, macBody) = rest.TakeN(1);
-                                return new RailgunMacro(
-                                    env,
-                                    ((List<object>) macArgs[0])
-                                    .Select(x => ((NameExpr) x).Name)
-                                    .ToArray(),
-                                    macBody.ToArray());
                         }
                     }
                     var fn = Eval(seq.Head, env);
                     switch (fn)
                     {
                         case IRailgunFn lfn:
-                            var fnArgs = seq.Tail.Select(x => Eval(x, env)).ToArray();
+                            if (lfn.IsMacro)
+                            {
+                                throw new RailgunRuntimeException("Macros should not be evaluating this late.");
+                            }
+                            var fnArgs = seq.Tail.Map(x => Eval(x, env));
                             return lfn.Eval(this, fnArgs);
-                        case IRailgunMacro:
-                            throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                         default:
-                            // Console.WriteLine(fn);
-                            Console.WriteLine(fn.GetType().Name);
                             throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
                     }
                 default:
