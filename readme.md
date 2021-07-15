@@ -4,12 +4,11 @@ The main repository for Railgun, a modern lisp. It builds upon the .NET ecosyste
 
 ## Features to add
 
-- ~~Array-backed list Type~~ Done.
-- ~~Make Seqs use linked lists~~ Also done.
-- Imports / multi-files
 - Import C# modules
+- use Railgun itself more to implement more function, not C#.
 - Better error messages
 - Gradual Typing and Typechecker
+- async/await?
 - Compile things down to IL
 - Bootstrap the compiler
 - More tests

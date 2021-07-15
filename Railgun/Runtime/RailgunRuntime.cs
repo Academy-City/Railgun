@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Railgun.Grammar;
 using Railgun.Types;
@@ -94,6 +95,7 @@ namespace Railgun.Runtime
 
     public class RailgunRuntime
     {
+        private readonly string _workingDirectory;
         public readonly RailgunEnvironment Globals = new();
 
         public void NewFn(string name, Func<object[], object> body)
@@ -101,8 +103,10 @@ namespace Railgun.Runtime
             Globals[name] = new BuiltinFn(body);
         }
         
-        public RailgunRuntime()
+        public RailgunRuntime(string workingDirectory = "")
         {
+            _workingDirectory = workingDirectory;
+
             Globals["true"] = true;
             Globals["false"] = false;
             NewFn("=", x => x[0].Equals(x[1]));
@@ -129,7 +133,7 @@ namespace Railgun.Runtime
                 Console.WriteLine(x[0]);
                 return null;
             });
-            NewFn("debugmac", x => ExpandMacros(x[0], Globals));
+            NewFn("macroexpand", x => ExpandMacros(x[0], Globals));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
                 (cx, fn) => ((IRailgunFn) fn).Eval(this, new Cell(cx, Nil.Value))));
@@ -240,8 +244,8 @@ namespace Railgun.Runtime
                                 }
                                 return doRet;
                             case "while":
-                                var (wcond, wbody) = rest.TakeN(1);
-                                while ((bool) Eval(wcond[0], env))
+                                var (wcond, wbody) = (Cell) rest;
+                                while ((bool) Eval(wcond, env))
                                 {
                                     foreach (var x in wbody)
                                     {
@@ -251,15 +255,29 @@ namespace Railgun.Runtime
                                 return null;
                             case "fn":
                             case "macro":
-                                var (fnArgs, fnBody) = rest.TakeN(1);
+                                var (fnArgs, fnBody) = (Cell) rest;
                                 return new RailgunFn(
                                     env,
-                                    ((List<object>) fnArgs[0])
+                                    ((List<object>) fnArgs)
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
                                     fnBody.ToArray(),
                                     n.Name == "macro"
                                 );
+                            // TODO: make asynchronous
+                            case "use":
+                                var (uArg, _) = (Cell) rest;
+                                var path = Path.Join(_workingDirectory, (string) uArg+".rg");
+                                var uenv = new RailgunEnvironment(env);
+                                RunProgram(
+                                    new Parser(File.ReadAllText(path)).ParseProgram(),
+                                    uenv
+                                );
+                                return uenv;
+                            case ".":
+                                var (dotRoot, dotRest) = (Cell) rest;
+                                return dotRest.Aggregate(Eval(dotRoot, env), (current, wx) =>
+                                    ((IDottable) current).DotGet(((NameExpr) wx).Name));
                         }
                     }
                     var fn = Eval(seq.Head, env);
@@ -280,11 +298,12 @@ namespace Railgun.Runtime
             }
         }
         
-        public void RunProgram(IEnumerable<object> program)
+        public void RunProgram(IEnumerable<object> program, IEnvironment env = null)
         {
+            env ??= Globals;
             foreach (var expr in program)
             {
-                Eval(expr, topLevel: true);
+                Eval(expr, env, topLevel: true);
             }
         }
     }

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
+using System.Linq;
 using Railgun.Types;
 
 namespace Railgun.Grammar
@@ -66,7 +66,13 @@ namespace Railgun.Grammar
                     _pos++;
                     return new UnquoteExpr(ParseExpr());
                 case TokenType.NameSymbol:
-                    return new NameExpr(Next().Value);
+                    var nv = Next().Value;
+                    if (nv.Contains("."))
+                    {
+                        return new Cell(new NameExpr("."), Seq.Create(nv.Split('.')
+                            .Select(x => new NameExpr(x))));
+                    }
+                    return new NameExpr(nv);
                 case TokenType.Numeric:
                     return int.Parse(Next().Value);
                 case TokenType.String:

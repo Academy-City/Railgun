@@ -46,7 +46,8 @@ namespace Railgun.Types
     public record Nil : Seq
     {
         private Nil() { }
-        public static readonly Nil Value = new Nil();
+        public static readonly Nil Value = new();
     }
+
     public record Cell(object Head, Seq Tail) : Seq;
 }

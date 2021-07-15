@@ -8,7 +8,7 @@ namespace Railgun.Runtime
         object Set(string key, object value);
     }
     
-    public class RailgunEnvironment : IEnvironment
+    public class RailgunEnvironment : IEnvironment, IDottable
     {
         private readonly IEnvironment _parent;
         private readonly Dictionary<string, object> _dict = new();
@@ -36,5 +36,7 @@ namespace Railgun.Runtime
             }
             return value;
         }
+
+        public object DotGet(string key) => this[key];
     }
 }

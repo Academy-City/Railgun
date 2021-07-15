@@ -42,7 +42,7 @@ namespace Railgun.Grammar
                 {
                     _pos++;
                 }
-                else if (Current == ';') // comments
+                else if (Current == '#') // comments
                 {
                     _pos++;
                     while (_pos < _source.Length && Current != '\n')
@@ -97,7 +97,7 @@ namespace Railgun.Grammar
         {
             if (start && char.IsNumber(c)) return false;
 
-            return char.IsLetterOrDigit(c) || "=+-*/!?_<|>&".Contains(c);
+            return char.IsLetterOrDigit(c) || "=+-*/!?_<|>&.".Contains(c);
         }
 
         private void MustBe(char c)

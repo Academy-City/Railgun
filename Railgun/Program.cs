@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using Cocona;
 using Railgun.Grammar;
@@ -66,13 +67,19 @@ namespace Railgun
         {
             // var l = new Cell(1, new Cell(3, new Cell(5, null)));
             // Console.WriteLine(JsonConvert.SerializeObject(l.ToList()));
-            var runtime = new RailgunRuntime();
+            // var sw = new Stopwatch();
+            // sw.Start();
+
             var workingDir = Directory.GetCurrentDirectory();
+            var runtime = new RailgunRuntime(workingDir);
             
             var entry = Path.Join(workingDir, "./main.rg");
 
             var program = ReadProgram(entry);
             runtime.RunProgram(program);
+            
+            // sw.Stop();
+            // Console.WriteLine("Elapsed: "+sw.Elapsed);
         }
     }
 }
