@@ -107,9 +107,14 @@ namespace Railgun.Runtime
         private readonly string _workingDirectory;
         public readonly RailgunEnvironment Globals = new();
 
-        public void NewFn(string name, Func<object[], object> body)
+        private void NewFn(string name, Func<object[], object> body)
         {
             Globals[name] = new BuiltinFn(body);
+        }
+        
+        private void NewMacro(string name, Func<object[], object> body)
+        {
+            Globals[name] = new BuiltinFn(body, true);
         }
         
         public RailgunRuntime(string workingDirectory = "")
@@ -146,6 +151,7 @@ namespace Railgun.Runtime
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
                 (cx, fn) => ((IRailgunFn) fn).Eval(this, new Cell(cx, Nil.Value))));
+            
             RunProgram(new Parser(Prelude).ParseProgram());
         }
         private const string Prelude = @"
@@ -156,17 +162,22 @@ namespace Railgun.Runtime
     `(let ,name ,(concat `(fn ,args) body)))
 ";
 
-        // evaluates unquoted values inside quasiquotes
-        // eval is only allowed at depth 0
-        private object EvalQuasiquote(object ex, IEnvironment env, int depth = 0)
+        private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
         {
             return ex switch
             {
-                QuoteExpr {IsQuasiquote: true} qex => EvalQuasiquote(qex.Value, env, depth + 1),
-                UnquoteExpr uex => EvalQuasiquote(uex.Value, env, depth - 1),
-                Seq seq when depth != 0 => seq.Map(x => EvalQuasiquote(x, env, depth)),
-                _ => depth == 0 ? Eval(ex, env) : ex
+                QuoteExpr {IsQuasiquote: true} qex => WalkQuasiquote(qex.Value, fn, depth + 1),
+                UnquoteExpr uex => WalkQuasiquote(uex.Value, fn, depth - 1),
+                Seq seq when depth != 0 => seq.Map(x => WalkQuasiquote(x, fn, depth)),
+                _ => depth == 0 ? fn(ex) : ex
             };
+        }
+        
+        // evaluates unquoted values inside quasiquotes
+        // eval is only allowed at depth 0
+        private object EvalQuasiquote(object ex, IEnvironment env)
+        {
+            return WalkQuasiquote(ex, x => Eval(x, env));
         }
 
         private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunFn mac)
@@ -192,22 +203,16 @@ namespace Railgun.Runtime
             return false;
         }
 
-        public object ExpandMacros(object ex, IEnvironment env, int qqDepth = 0)
+        private object ExpandMacros(object ex, IEnvironment env)
         {
-            // no eval, just replace macros as you see, except when in qqDepth
-            return ex switch
+            return WalkQuasiquote(ex, x =>
             {
-                QuoteExpr {IsQuasiquote: true} qex => 
-                    new QuoteExpr(ExpandMacros(qex.Value, env, qqDepth + 1), true),
-                UnquoteExpr uex => new UnquoteExpr(ExpandMacros(uex.Value, env, qqDepth - 1)),
-                // after the first expansion, recursively expand
-                Cell c when TryGetMacro(c.Head, env, out var m)
-                    && qqDepth == 0 => ExpandMacros(
-                    m.Eval(this, c.Tail), env, qqDepth
-                ),
-                Seq seq => seq.Map(x => ExpandMacros(x, env, qqDepth)),
-                _ => ex
-            };
+                if (x is Cell c && TryGetMacro(c.Head, env, out var mac))
+                {
+                    return ExpandMacros(mac.Eval(this, c.Tail), env);
+                }
+                return x;
+            });
         }
 
         public object Eval(object ex, IEnvironment env = null, bool topLevel = false)
