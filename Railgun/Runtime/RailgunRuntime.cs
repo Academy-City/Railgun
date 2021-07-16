@@ -25,11 +25,11 @@ namespace Railgun.Runtime
         private readonly IEnvironment _env;
         public string[] Args { get; }
         public string IsVariadic { get; } = "";
-        public object[] Body { get; }
+        public Seq Body { get; }
 
         public bool IsMacro { get; }
         
-        public RailgunFn(IEnvironment env, string[] args, object[] body, bool isMacro = false)
+        public RailgunFn(IEnvironment env, string[] args, Seq body, bool isMacro = false)
         {
             _env = env;
             // TODO: Better checks
@@ -44,35 +44,44 @@ namespace Railgun.Runtime
             Body = body;
         }
         
-        protected void SetupArgs(object[] args, IEnvironment env)
+        private void SetupArgs(Seq args, IEnvironment env)
         {
-            if (args.Length != Args.Length && IsVariadic != "" && args.Length < Args.Length)
+            var ac = args.Count();
+            if (ac != Args.Length && IsVariadic != "" && ac < Args.Length)
             {
                 throw new RailgunRuntimeException(
-                    $"Wrong number of args: Requested {Args.Length}, Got {args.Length}");
+                    $"Wrong number of args: Requested {Args.Length}, Got {ac}");
             }
-            for (var i = 0; i < Args.Length; i++)
+
+            foreach (var argName in Args)
             {
-                env[Args[i]] = args[i];
+                var (argValue, tail) = (Cell) args;
+                env[argName] = argValue;
+                args = tail;
             }
 
             if (IsVariadic != "")
             {
-                env[IsVariadic] = Seq.Create(args.Skip(Args.Length));
+                env[IsVariadic] = Seq.Create(args);
             }
         }
         
         public object Eval(RailgunRuntime runtime, Seq args)
         {
             var env = new RailgunEnvironment(_env);
-            SetupArgs(args.ToArray(), env);
+            SetupArgs(args, env);
             
-            object r = null;
-            foreach (var expr in Body)
+            var next = Body;
+            while (next is Cell c)
             {
-                r = runtime.Eval(expr, env);
+                var ev = runtime.Eval(c.Head, env);
+                if (c.Tail is Nil)
+                {
+                    return ev;
+                }
+                next = c.Tail;
             }
-            return r;
+            return null;
         }
     }
 
@@ -261,7 +270,7 @@ namespace Railgun.Runtime
                                     ((List<object>) fnArgs)
                                     .Select(x => ((NameExpr) x).Name)
                                     .ToArray(),
-                                    fnBody.ToArray(),
+                                    fnBody,
                                     n.Name == "macro"
                                 );
                             // TODO: make asynchronous
