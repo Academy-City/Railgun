@@ -36,6 +36,7 @@ namespace Railgun.Runtime
 
             Globals["true"] = true;
             Globals["false"] = false;
+            Globals["nil"] = Nil.Value;
             NewFn("=", x => x[0].Equals(x[1]));
 
             
@@ -130,6 +131,43 @@ namespace Railgun.Runtime
                 return x;
             });
         }
+        
+        private static object CompileFunctions(object ex)
+        {
+            return WalkQuasiquote(ex, x =>
+            {
+                if (x is Cell c)
+                {
+                    if (c.Head is NameExpr h)
+                    {
+                        if (h.Name == "fn")
+                        {
+                            var (fnArgs, fnBody) = (Cell) c.Tail;
+
+                            return new CompiledFunc(
+                                ((List<object>) fnArgs)
+                                .Select(n => ((NameExpr) n).Name)
+                                .ToArray(),
+                                fnBody);
+                        }
+
+                        if (h.Name == "macro")
+                        {
+                            var (fnArgs, fnBody) = (Cell) c.Tail;
+
+                            return new CompiledFunc(
+                                ((List<object>) fnArgs)
+                                .Select(n => ((NameExpr) n).Name)
+                                .ToArray(),
+                                fnBody, true);
+                        }
+                    }
+                    return c.Map(CompileFunctions);
+                }
+
+                return x;
+            });
+        }
 
         public object Eval(object ex, IEnvironment env = null, bool topLevel = false)
         {
@@ -137,10 +175,13 @@ namespace Railgun.Runtime
             if (topLevel)
             {
                 ex = ExpandMacros(ex, env);
+                ex = CompileFunctions(ex);
             }
 
             switch (ex)
             {
+                case CompiledFunc cm:
+                    return cm.BuildClosure(env);
                 case NameExpr nex:
                     return env[nex.Name];
                 case QuoteExpr q:
@@ -184,16 +225,8 @@ namespace Railgun.Runtime
                                 }
                                 return null;
                             case "fn":
-                            case "macro":
-                                var (fnArgs, fnBody) = (Cell) rest;
-                                return new RailgunFn(
-                                    env,
-                                    ((List<object>) fnArgs)
-                                    .Select(x => ((NameExpr) x).Name)
-                                    .ToArray(),
-                                    fnBody,
-                                    n.Name == "macro"
-                                );
+                            case "macro": 
+                                throw new RailgunRuntimeException("Unexpected uncompiled function");
                             // TODO: make asynchronous
                             case "use":
                                 var (uArg, _) = (Cell) rest;
