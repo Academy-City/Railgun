@@ -81,13 +81,20 @@ namespace Railgun.Runtime
 
         private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
         {
-            return ex switch
+            if (ex is Seq seq)
             {
-                QuoteExpr {IsQuasiquote: true} qex => WalkQuasiquote(qex.Value, fn, depth + 1),
-                UnquoteExpr uex => WalkQuasiquote(uex.Value, fn, depth - 1),
-                Seq seq when depth != 0 => seq.Map(x => WalkQuasiquote(x, fn, depth)),
-                _ => depth == 0 ? fn(ex) : ex
-            };
+                if (seq is not Cell c || c.Head is not NameExpr n)
+                    return depth != 0 ? seq.Map(x => WalkQuasiquote(x, fn, depth)) : fn(ex);
+
+                return n.Name switch
+                {
+                    "quasiquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth + 1),
+                    "unquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth - 1),
+                    _ => depth != 0 ? seq.Map(x => WalkQuasiquote(x, fn, depth)) : fn(ex)
+                };
+            }
+
+            return depth == 0 ? fn(ex) : ex;
         }
         
         // evaluates unquoted values inside quasiquotes
@@ -184,17 +191,16 @@ namespace Railgun.Runtime
                     return cm.BuildClosure(env);
                 case NameExpr nex:
                     return env[nex.Name];
-                case QuoteExpr q:
-                    return q.IsQuasiquote ? EvalQuasiquote(q, env) : q.Value;
-                case UnquoteExpr:
-                    throw new RailgunRuntimeException("Unquote is not allowed outside of quasiquotes");
                 case Cell seq: // function-like
-                    // TODO: keyword check
                     if (seq.Head is NameExpr n)
                     {
                         var rest = seq.Tail;
                         switch (n.Name)
                         {
+                            case "quote":
+                                return ((Cell) rest).Head;
+                            case "quasiquote":
+                                return EvalQuasiquote(seq, env);
                             case "let":
                                 var (letVars, _) = rest.TakeN(2);
                                 return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);
@@ -244,18 +250,16 @@ namespace Railgun.Runtime
                         }
                     }
                     var fn = Eval(seq.Head, env);
-                    switch (fn)
+                    if (Eval(seq.Head, env) is not IRailgunFn lfn)
+                        throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
+                    
+                    if (lfn.IsMacro)
                     {
-                        case IRailgunFn lfn:
-                            if (lfn.IsMacro)
-                            {
-                                throw new RailgunRuntimeException("Macros should not be evaluating this late.");
-                            }
-                            var fnArgs = seq.Tail.Map(x => Eval(x, env));
-                            return lfn.Eval(this, fnArgs);
-                        default:
-                            throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
+                        throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                     }
+                    var fnArgs = seq.Tail.Map(x => Eval(x, env));
+                    return lfn.Eval(this, fnArgs);
+            
                 default:
                     return ex;
             }

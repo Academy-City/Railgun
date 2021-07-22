@@ -58,13 +58,13 @@ namespace Railgun.Grammar
                     throw new NotImplementedException();
                 case TokenType.Quote:
                     _pos++;
-                    return new QuoteExpr(ParseExpr());
+                    return Seq.Create(new[] { new NameExpr("quote"), ParseExpr() });
                 case TokenType.Quasiquote:
                     _pos++;
-                    return new QuoteExpr(ParseExpr(), true);
+                    return Seq.Create(new[] { new NameExpr("quasiquote"), ParseExpr() });
                 case TokenType.Unquote:
                     _pos++;
-                    return new UnquoteExpr(ParseExpr());
+                    return Seq.Create(new[] { new NameExpr("unquote"), ParseExpr() });
                 case TokenType.NameSymbol:
                     var nv = Next().Value;
                     if (nv.Contains("."))
