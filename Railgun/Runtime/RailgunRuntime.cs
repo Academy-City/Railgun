@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Railgun.Grammar;
+using Railgun.Grammar.Sweet;
 using Railgun.Types;
 
 namespace Railgun.Runtime
@@ -69,17 +70,22 @@ namespace Railgun.Runtime
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
                 (cx, fn) => ((IRailgunClosure) fn).Eval(this, new Cell(cx, Nil.Value))));
             
-            RunProgram(new Parser(Prelude).ParseProgram());
+            RunProgram(new SweetParser(SweetPrelude).ParseSweetProgram());
         }
-        private const string Prelude = @"
-(let let-macro (macro [name args & body]
-    `(let ,name ,(concat `(macro ,args) body))))
 
-(let-macro let-fn [name args & body]
-    `(let ,name ,(concat `(fn ,args) body)))
+        private const string SweetPrelude = @"
+let let-macro
+    macro [name args & body]
+        quasiquote
+            let ,name ,(concat `(macro ,args) body)
 
-(let-macro use-as [var name]
-    `(let ,var (use ,name)))
+let-macro let-fn [name args & body]
+    quasiquote
+        let ,name ,(concat `(fn ,args) body)
+
+let-macro use-as [var name]
+    quasiquote
+        let ,var (use ,name)
 ";
 
         private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
@@ -227,8 +233,17 @@ namespace Railgun.Runtime
                             // TODO: make asynchronous
                             case "use":
                                 var (uArg, _) = (Cell) rest;
-                                var path = Path.Join(_workingDirectory, (string) uArg+".rg");
                                 var uenv = new RailgunEnvironment(env);
+                                var path = Path.Join(_workingDirectory, (string) uArg+".rg");
+                                if (File.Exists(Path.Join(_workingDirectory, (string) uArg + ".rgx")))
+                                {
+                                    path = Path.Join(_workingDirectory, (string) uArg + ".rgx");
+                                    RunProgram(
+                                        new SweetParser(File.ReadAllText(path)).ParseSweetProgram(),
+                                        uenv
+                                    );
+                                    return uenv;
+                                }
                                 RunProgram(
                                     new Parser(File.ReadAllText(path)).ParseProgram(),
                                     uenv

@@ -5,40 +5,48 @@ using Railgun.Types;
 
 namespace Railgun.Grammar
 {
-    public class Parser
+    public abstract class BaseParser
     {
-        private int _pos = 0;
-        private readonly List<Token> _tokens;
-        private Token Current => _tokens[_pos];
-
-        public Parser(string source)
-        {
-            var lexer = new Lexer(source);
-            _tokens = lexer.Lex();
-        }
-
-        private Token Next()
+        protected int Pos;
+        protected List<Token> Tokens;
+        protected Token Current => Tokens[Pos];
+        
+        protected Token Next()
         {
             var current = Current;
-            _pos++;
+            Pos++;
             return current;
         }
 
-        private void MustBe(TokenType t)
+        protected void MustBe(TokenType t)
         {
             if (Current.Kind != t)
             {
                 throw new Exception($"Expected {t.ToString()}, Got {Current.Kind}");
             }
 
-            _pos++;
+            Pos++;
+        }
+    }
+    
+    public class Parser : BaseParser
+    {
+        public Parser(string source)
+        {
+            var lexer = new Lexer(source);
+            Tokens = lexer.Lex();
+        }
+        
+        public Parser(List<Token> tokens)
+        {
+            Tokens = tokens;
         }
 
         // a program is just a list of exprs
         public object[] ParseProgram()
         {
             List<object> objs = new();
-            while (_pos < _tokens.Count)
+            while (Current.Kind != TokenType.Eof)
             {
                 objs.Add(ParseExpr());
             }
@@ -57,13 +65,13 @@ namespace Railgun.Grammar
                 case TokenType.RBracket:
                     throw new NotImplementedException();
                 case TokenType.Quote:
-                    _pos++;
+                    Pos++;
                     return Seq.Create(new[] { new NameExpr("quote"), ParseExpr() });
                 case TokenType.Quasiquote:
-                    _pos++;
+                    Pos++;
                     return Seq.Create(new[] { new NameExpr("quasiquote"), ParseExpr() });
                 case TokenType.Unquote:
-                    _pos++;
+                    Pos++;
                     return Seq.Create(new[] { new NameExpr("unquote"), ParseExpr() });
                 case TokenType.NameSymbol:
                     var nv = Next().Value;
