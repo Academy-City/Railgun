@@ -22,12 +22,12 @@ namespace Railgun.Runtime
 
         private void NewFn(string name, Func<object[], object> body)
         {
-            Globals[name] = new BuiltinFn(body);
+            Globals[name] = new BuiltinClosure(body);
         }
         
         private void NewMacro(string name, Func<object[], object> body)
         {
-            Globals[name] = new BuiltinFn(body, true);
+            Globals[name] = new BuiltinClosure(body, true);
         }
         
         public RailgunRuntime(string workingDirectory = "")
@@ -37,9 +37,12 @@ namespace Railgun.Runtime
             Globals["true"] = true;
             Globals["false"] = false;
             Globals["nil"] = Nil.Value;
-            NewFn("=", x => x[0].Equals(x[1]));
 
-            
+            NewFn("car", x => (x[0] as Cell)?.Head);
+            NewFn("cdr", x => (x[0] as Cell)?.Tail);
+            NewFn("cons", x => new Cell(x[0], (Seq) x[1]));
+
+            NewFn("=", x => x[0].Equals(x[1]));
             NewFn("and", x => (bool) x[0] && (bool) x[1]);
             NewFn("or", x => (bool) x[0] || (bool) x[1]);
 
@@ -64,7 +67,7 @@ namespace Railgun.Runtime
             NewFn("macroexpand", x => ExpandMacros(x[0], Globals));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
-                (cx, fn) => ((IRailgunFn) fn).Eval(this, new Cell(cx, Nil.Value))));
+                (cx, fn) => ((IRailgunClosure) fn).Eval(this, new Cell(cx, Nil.Value))));
             
             RunProgram(new Parser(Prelude).ParseProgram());
         }
@@ -104,18 +107,18 @@ namespace Railgun.Runtime
             return WalkQuasiquote(ex, x => Eval(x, env));
         }
 
-        private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunFn mac)
+        private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunClosure mac)
         {
             mac = null;
             switch (ex)
             {
-                case IRailgunFn{IsMacro: true} m:
+                case IRailgunClosure{IsMacro: true} m:
                     mac = m;
                     return true;
                 case NameExpr nex:
                 {
                     var x = env[nex.Name];
-                    if (x is IRailgunFn{IsMacro: true} m2)
+                    if (x is IRailgunClosure{IsMacro: true} m2)
                     {
                         mac = m2;
                         return true;
@@ -143,36 +146,24 @@ namespace Railgun.Runtime
         {
             return WalkQuasiquote(ex, x =>
             {
-                if (x is Cell c)
+                if (x is not Cell c) return x;
+                
+                if (c.Head is NameExpr h)
                 {
-                    if (c.Head is NameExpr h)
+                    switch (h.Name)
                     {
-                        if (h.Name == "fn")
-                        {
+                        case "fn":
+                        case "macro":
                             var (fnArgs, fnBody) = (Cell) c.Tail;
 
-                            return new CompiledFunc(
+                            return new RailgunFn(
                                 ((List<object>) fnArgs)
                                 .Select(n => ((NameExpr) n).Name)
                                 .ToArray(),
-                                fnBody);
-                        }
-
-                        if (h.Name == "macro")
-                        {
-                            var (fnArgs, fnBody) = (Cell) c.Tail;
-
-                            return new CompiledFunc(
-                                ((List<object>) fnArgs)
-                                .Select(n => ((NameExpr) n).Name)
-                                .ToArray(),
-                                fnBody, true);
-                        }
+                                fnBody, h.Name == "macro");
                     }
-                    return c.Map(CompileFunctions);
                 }
-
-                return x;
+                return c.Map(CompileFunctions);
             });
         }
 
@@ -187,7 +178,7 @@ namespace Railgun.Runtime
 
             switch (ex)
             {
-                case CompiledFunc cm:
+                case IRailgunFn cm:
                     return cm.BuildClosure(env);
                 case NameExpr nex:
                     return env[nex.Name];
@@ -250,7 +241,7 @@ namespace Railgun.Runtime
                         }
                     }
                     var fn = Eval(seq.Head, env);
-                    if (Eval(seq.Head, env) is not IRailgunFn lfn)
+                    if (Eval(seq.Head, env) is not IRailgunClosure lfn)
                         throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
                     
                     if (lfn.IsMacro)

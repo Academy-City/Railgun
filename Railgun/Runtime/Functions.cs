@@ -4,20 +4,27 @@ using Railgun.Types;
 
 namespace Railgun.Runtime
 {
-    public interface IRailgunFn
+    public interface IRailgunClosure
     {
         public object Eval(RailgunRuntime runtime, Seq args);
         public bool IsMacro { get; }
     }
+    
+    public interface IRailgunFn
+    {
+        Closure BuildClosure(IEnvironment env);
+        object Execute(IEnvironment env, RailgunRuntime runtime, Seq args);
+        bool IsMacro { get; }
+    }
 
-    public class CompiledFunc
+    public class RailgunFn : IRailgunFn
     {
         public string[] Args { get; }
         public string IsVariadic { get; } = "";
         public Seq Body { get; }
         public bool IsMacro { get; }
         
-        public CompiledFunc(string[] args, Seq body, bool isMacro = false)
+        public RailgunFn(string[] args, Seq body, bool isMacro = false)
         {
             // TODO: Better checks
             Args = args;
@@ -30,55 +37,38 @@ namespace Railgun.Runtime
             }
             Body = body;
         }
-
-        public Closure BuildClosure(IEnvironment env)
-        {
-            return new(env, this);
-        }
-    }
-
-    public class Closure : IRailgunFn
-    {
-        private readonly IEnvironment _env;
-        private readonly CompiledFunc _func;
-
-        public Closure(IEnvironment env, CompiledFunc func)
-        {
-            _env = env;
-            _func = func;
-        }
         
         private void SetupArgs(Seq args, IEnvironment env)
         {
             var ac = args.Count();
-            if (ac != _func.Args.Length && _func.IsVariadic != "" && ac < _func.Args.Length)
+            if (ac != Args.Length && IsVariadic != "" && ac < Args.Length)
             {
                 throw new RailgunRuntimeException(
-                    $"Wrong number of args: Requested {_func.Args.Length}, Got {ac}");
+                    $"Wrong number of args: Requested {Args.Length}, Got {ac}");
             }
 
-            foreach (var argName in _func.Args)
+            foreach (var argName in Args)
             {
                 var (argValue, tail) = (Cell) args;
                 env[argName] = argValue;
                 args = tail;
             }
 
-            if (_func.IsVariadic != "")
+            if (IsVariadic != "")
             {
-                env[_func.IsVariadic] = Seq.Create(args);
+                env[IsVariadic] = Seq.Create(args);
             }
         }
 
-        public object Eval(RailgunRuntime runtime, Seq args)
+        public object Execute(IEnvironment env, RailgunRuntime runtime, Seq args)
         {
-            var env = new RailgunEnvironment(_env);
-            SetupArgs(args, env);
+            var nenv = new RailgunEnvironment(env);
+            SetupArgs(args, nenv);
             
-            var next = _func.Body;
+            var next = Body;
             while (next is Cell c)
             {
-                var ev = runtime.Eval(c.Head, env);
+                var ev = runtime.Eval(c.Head, nenv);
                 if (c.Tail is Nil)
                 {
                     return ev;
@@ -89,15 +79,38 @@ namespace Railgun.Runtime
             return null;
         }
 
+        
+        public Closure BuildClosure(IEnvironment env)
+        {
+            return new(env, this);
+        }
+    }
+
+    public class Closure : IRailgunClosure
+    {
+        private readonly IEnvironment _env;
+        private readonly IRailgunFn _func;
+
+        public Closure(IEnvironment env, IRailgunFn func)
+        {
+            _env = env;
+            _func = func;
+        }
+
+        public object Eval(RailgunRuntime runtime, Seq args)
+        {
+            return _func.Execute(_env, runtime, args);
+        }
+
         public bool IsMacro => _func.IsMacro;
     }
 
-    public sealed class BuiltinFn : IRailgunFn
+    public sealed class BuiltinClosure : IRailgunClosure
     {
         public Func<object[], object> Body { get; }
         public bool IsMacro { get; }
 
-        public BuiltinFn(Func<object[], object> body, bool isMacro = false)
+        public BuiltinClosure(Func<object[], object> body, bool isMacro = false)
         {
             Body = body;
             IsMacro = isMacro;
