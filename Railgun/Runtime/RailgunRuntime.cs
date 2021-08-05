@@ -83,6 +83,16 @@ namespace Railgun.Runtime
             });
             
             NewFn("list", x => x.ToList());
+            NewFn("foreach-fn", x =>
+            {
+                var list = (IEnumerable<object>) x[0];
+                var f = (IRailgunClosure) x[1];
+                foreach (var item in list)
+                {
+                    f.Eval(this, new Cell(item, Nil.Value));
+                }
+                return null;
+            });
 
             NewFn("macroexpand", x => ExpandMacros(x[0], Globals));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
@@ -109,6 +119,10 @@ let-macro def (category name & body)
 let-macro use-as (var name)
     quasiquote
         let ,var (use ,name)
+
+let-macro foreach (item iter & body)
+    quasiquote
+        foreach-fn ,iter ,(concat `(fn (,item)) body)
 ";
 
         private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
@@ -261,20 +275,9 @@ let-macro use-as (var name)
                             case "use":
                                 var (uArg, _) = (Cell) rest;
                                 var uenv = new RailgunEnvironment(env);
-                                var path = Path.Join(_workingDirectory, (string) uArg+".rg");
-                                if (File.Exists(Path.Join(_workingDirectory, (string) uArg + ".rgx")))
-                                {
-                                    path = Path.Join(_workingDirectory, (string) uArg + ".rgx");
-                                    RunProgram(
-                                        new SweetParser(File.ReadAllText(path)).ParseSweetProgram(),
-                                        uenv
-                                    );
-                                    return uenv;
-                                }
-                                RunProgram(
-                                    new Parser(File.ReadAllText(path)).ParseProgram(),
-                                    uenv
-                                );
+                                var path = Path.Join(_workingDirectory, (string) uArg);
+                                var uProgram = ProgramLoader.LoadProgram(path);
+                                RunProgram(uProgram, uenv);
                                 return uenv;
                             case ".":
                                 var (dotRoot, dotRest) = (Cell) rest;

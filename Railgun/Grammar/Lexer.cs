@@ -42,21 +42,17 @@ namespace Railgun.Grammar
         public static LinePosition CalculatePosition(string src, int position)
         {
             var row = 1;
-            var col = 1;
+            var lastN = 0;
             for (var i = 0; i < position; i++)
             {
                 var c = src[i];
                 if (c == '\n')
                 {
+                    lastN = i;
                     row++;
-                    col = 0;
-                }
-                else
-                {
-                    col++;
                 }
             }
-            return new LinePosition(row, col);
+            return new LinePosition(row, position - lastN + row);
         }
         
         protected char Next()
@@ -70,7 +66,7 @@ namespace Railgun.Grammar
         {
             if (Next() != c)
             {
-                throw new Exception("Must be char");
+                throw new ParseException($"Expected \'{c}\'", Pos);
             }
         }
         
@@ -90,7 +86,7 @@ namespace Railgun.Grammar
                         't' => '\t',
                         'r' => '\r',
                         '\\' => '\\',
-                        _ => throw new Exception("Unexpected Escape at " + Pos)
+                        _ => throw new ParseException("Unexpected Escape", Pos)
                     };
                 }
                 else
@@ -181,21 +177,21 @@ namespace Railgun.Grammar
                 {
                     list.Add(Current switch
                     {
-                        '(' => new Token(TokenType.LParen, "", Pos),
-                        ')' => new Token(TokenType.RParen, "", Pos),
-                        '[' => new Token(TokenType.LBracket, "", Pos),
-                        ']' => new Token(TokenType.RBracket, "", Pos),
-                        '\'' => new Token(TokenType.Quote, "", Pos),
-                        '`' => new Token(TokenType.Quasiquote, "", Pos), 
-                        ',' => new Token(TokenType.Unquote, "", Pos),
+                        '(' => new Token(TokenType.LParen, "(", Pos),
+                        ')' => new Token(TokenType.RParen, ")", Pos),
+                        '[' => new Token(TokenType.LBracket, "[", Pos),
+                        ']' => new Token(TokenType.RBracket, "]", Pos),
+                        '\'' => new Token(TokenType.Quote, "\\", Pos),
+                        '`' => new Token(TokenType.Quasiquote, "`", Pos), 
+                        ',' => new Token(TokenType.Unquote, ",", Pos),
                         
-                        _ => throw new Exception("unexpected token at " + Pos)
+                        _ => throw new ParseException("Unexpected token", Pos)
                     });
                     Pos++;
                 }
                 else
                 {
-                    throw new Exception("unexpected token");
+                    throw new ParseException("Unexpected token", Pos);
                 }
             }
             list.Add(new Token(TokenType.Eof, "", Pos));

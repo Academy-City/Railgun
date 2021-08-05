@@ -22,7 +22,7 @@ namespace Railgun.Grammar
         {
             if (Current.Kind != t)
             {
-                throw new Exception($"Expected {t.ToString()}, Got {Current.Kind}");
+                throw new ParseException($"Expected {t.ToString()}, Got {Current.Kind}", Current.Position);
             }
 
             Pos++;
@@ -65,7 +65,7 @@ namespace Railgun.Grammar
                     return ParseList();
                 case TokenType.RParen:
                 case TokenType.RBracket:
-                    throw new NotImplementedException();
+                    throw new ParseException($"Unexpected \"{Current.Value}\"", Current.Position);
                 case TokenType.Quote:
                     Pos++;
                     return Seq.Create(new[] { new NameExpr("quote"), ParseExpr() });
@@ -88,8 +88,7 @@ namespace Railgun.Grammar
                 case TokenType.String:
                     return Next().Value;
                 default:
-                    throw new Exception("Unknown Token Type " + Current.Kind + " at " + 
-                                        BaseLexer.CalculatePosition(Source, Current.Position));
+                    throw new ParseException("Unknown Token Type " + Current.Kind, Current.Position);
             }
         }
 

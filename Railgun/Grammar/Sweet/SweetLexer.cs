@@ -105,21 +105,21 @@ namespace Railgun.Grammar.Sweet
                 {
                     list.Add(Current switch
                     {
-                        '(' => new Token(TokenType.LParen, "", Pos),
-                        ')' => new Token(TokenType.RParen, "", Pos),
-                        '[' => new Token(TokenType.LBracket, "", Pos),
-                        ']' => new Token(TokenType.RBracket, "", Pos),
-                        '\'' => new Token(TokenType.Quote, "", Pos),
-                        '`' => new Token(TokenType.Quasiquote, "", Pos), 
-                        ',' => new Token(TokenType.Unquote, "", Pos),
+                        '(' => new Token(TokenType.LParen, "(", Pos),
+                        ')' => new Token(TokenType.RParen, ")", Pos),
+                        '[' => new Token(TokenType.LBracket, "[", Pos),
+                        ']' => new Token(TokenType.RBracket, "]", Pos),
+                        '\'' => new Token(TokenType.Quote, "\\", Pos),
+                        '`' => new Token(TokenType.Quasiquote, "`", Pos), 
+                        ',' => new Token(TokenType.Unquote, ",", Pos),
                         
-                        _ => throw new Exception("unexpected token")
+                        _ => throw new ParseException("Unexpected token", Pos)
                     });
                     Pos++;
                 }
                 else
                 {
-                    throw new Exception("unexpected token");
+                    throw new ParseException("Unexpected token", Pos);
                 }
             }
 
