@@ -62,13 +62,14 @@ namespace Railgun
         }
         
         [Command("run")]
-        public void Run()
+        public void Run(string entry = "./main")
         {
             var workingDir = Directory.GetCurrentDirectory();
             var runtime = new RailgunRuntime(workingDir);
 
-            var entry = Path.Join(workingDir, "./main.rg");
-            var program = ReadProgram(entry);
+            entry = Path.Join(workingDir, entry);
+            var program = ProgramLoader.LoadProgram(entry);
+            
             runtime.RunProgram(program);
         }
     }
