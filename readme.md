@@ -12,3 +12,4 @@ The main repository for Railgun, a modern lisp. It builds upon the .NET ecosyste
 - Compile things down to IL
 - Bootstrap the compiler
 - More tests
+- support other number types

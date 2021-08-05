@@ -1,11 +1,7 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using System.Text.Json.Serialization;
 using Cocona;
-using Newtonsoft.Json;
 using Railgun.Grammar;
-using Railgun.Grammar.Sweet;
 using Railgun.Runtime;
 
 namespace Railgun
@@ -68,16 +64,9 @@ namespace Railgun
         [Command("run")]
         public void Run()
         {
-
             var workingDir = Directory.GetCurrentDirectory();
             var runtime = new RailgunRuntime(workingDir);
 
-            // var lo = new SweetLexer(File.ReadAllText(Path.Join(workingDir, "./main.rgx"))).Lex();
-            // Console.WriteLine(JsonConvert.SerializeObject(lo));
-            // var lo = new SweetParser(File.ReadAllText(Path.Join(workingDir, "./main.rgx")))
-            //     .ParseSweetProgram().ToList();
-            // Console.WriteLine(RailgunLibrary.Repr(lo));
-            
             var entry = Path.Join(workingDir, "./main.rg");
             var program = ReadProgram(entry);
             runtime.RunProgram(program);

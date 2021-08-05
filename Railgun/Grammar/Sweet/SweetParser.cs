@@ -9,6 +9,7 @@ namespace Railgun.Grammar.Sweet
             new SweetLexer(source).Lex()
         )
         {
+            Source = source;
         }
 
         public List<object> ParseIndented()
@@ -28,11 +29,15 @@ namespace Railgun.Grammar.Sweet
         public object[] ParseSweetProgram()
         {
             List<object> objs = new();
-            while (Current.Kind != TokenType.Eof)
+            while (true)
             {
+                while (Current.Kind == TokenType.Newline)
+                {
+                    Pos++;
+                }
+                if (Current.Kind == TokenType.Eof) return objs.ToArray();
                 objs.Add(ParseSweet());
             }
-            return objs.ToArray();
         }
         
         public object ParseSweet() {
@@ -40,12 +45,9 @@ namespace Railgun.Grammar.Sweet
             {
                 Pos++;
             }
-
-            // Console.WriteLine(Current);
-            // Console.WriteLine(JsonConvert.SerializeObject(Tokens));
             var fl = new List<object> { ParseExpr() };
             
-            // Console.WriteLine(RailgunLibrary.Repr(fl));
+            // parse single line
             var d = true;
             while (d)
             {

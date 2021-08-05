@@ -50,4 +50,6 @@ namespace Railgun.Types
     }
 
     public record Cell(object Head, Seq Tail) : Seq;
+
+    public record RailgunList(List<object> List);
 }

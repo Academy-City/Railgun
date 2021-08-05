@@ -17,14 +17,15 @@ namespace Railgun.Grammar.Sweet
         private int TakeWhitespaces()
         {
             var n = Pos;
-            if (Pos >= Source.Length) return 0;
             while (true)
             {
+                if (Pos >= Source.Length) return Pos - n;
+
                 switch (Current)
                 {
                     case '#':
                         Pos++;
-                        while (Current != '\n')
+                        while (Pos < Source.Length && Current != '\n')
                         {
                             Pos++;
                         }
@@ -50,17 +51,17 @@ namespace Railgun.Grammar.Sweet
             }
             if (_indentStack.Peek() == wsCount)
             {
-                list.Add(new Token(TokenType.Newline, ""));
+                list.Add(new Token(TokenType.Newline, "", Pos));
             }
             else if (_indentStack.Peek() < wsCount)
             {
-                list.Add(new Token(TokenType.Indent, ""));
+                list.Add(new Token(TokenType.Indent, "", Pos));
                 _indentStack.Push(wsCount);
             }
 
             while (_indentStack.Peek() > wsCount)
             {
-                list.Add(new Token(TokenType.Dedent, ""));
+                list.Add(new Token(TokenType.Dedent, "", Pos));
                 _indentStack.Pop();
             }
         }
@@ -104,13 +105,13 @@ namespace Railgun.Grammar.Sweet
                 {
                     list.Add(Current switch
                     {
-                        '(' => new Token(TokenType.LParen, ""),
-                        ')' => new Token(TokenType.RParen, ""),
-                        '[' => new Token(TokenType.LBracket, ""),
-                        ']' => new Token(TokenType.RBracket, ""),
-                        '\'' => new Token(TokenType.Quote, ""),
-                        '`' => new Token(TokenType.Quasiquote, ""), 
-                        ',' => new Token(TokenType.Unquote, ""),
+                        '(' => new Token(TokenType.LParen, "", Pos),
+                        ')' => new Token(TokenType.RParen, "", Pos),
+                        '[' => new Token(TokenType.LBracket, "", Pos),
+                        ']' => new Token(TokenType.RBracket, "", Pos),
+                        '\'' => new Token(TokenType.Quote, "", Pos),
+                        '`' => new Token(TokenType.Quasiquote, "", Pos), 
+                        ',' => new Token(TokenType.Unquote, "", Pos),
                         
                         _ => throw new Exception("unexpected token")
                     });
@@ -124,10 +125,10 @@ namespace Railgun.Grammar.Sweet
 
             while (_indentStack.Pop() != 0)
             {
-                list.Add(new Token(TokenType.Dedent, ""));
+                list.Add(new Token(TokenType.Dedent, "", Pos));
             }
             
-            list.Add(new Token(TokenType.Eof, ""));
+            list.Add(new Token(TokenType.Eof, "", Pos));
             return list;
         }
     }

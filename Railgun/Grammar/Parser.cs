@@ -31,8 +31,10 @@ namespace Railgun.Grammar
     
     public class Parser : BaseParser
     {
+        protected string Source;
         public Parser(string source)
         {
+            Source = source;
             var lexer = new Lexer(source);
             Tokens = lexer.Lex();
         }
@@ -86,7 +88,25 @@ namespace Railgun.Grammar
                 case TokenType.String:
                     return Next().Value;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new Exception("Unknown Token Type " + Current.Kind + " at " + 
+                                        BaseLexer.CalculatePosition(Source, Current.Position));
+            }
+        }
+
+        private void TakeIndents()
+        {
+            while (true)
+            {
+                switch (Current.Kind)
+                {
+                    case TokenType.Indent:
+                    case TokenType.Dedent:
+                    case TokenType.Newline:
+                        Pos++;
+                        break;
+                    default:
+                        return;
+                }
             }
         }
 
@@ -94,17 +114,23 @@ namespace Railgun.Grammar
         {
             var list = new List<object>();
             MustBe(left);
+            TakeIndents();
             while (Current.Kind != right)
             {
                 list.Add(ParseExpr());
+                TakeIndents();
             }
             MustBe(right);
             return list;
         }
 
-        public List<object> ParseList()
+        public Seq ParseList()
         {
-            return ParseCollection(TokenType.LBracket, TokenType.RBracket);
+            var w = new[]
+            {
+                new NameExpr("list"),
+            }.Concat(ParseCollection(TokenType.LBracket, TokenType.RBracket));
+            return Seq.Create(w);
         }
 
         public Seq ParseSequence()

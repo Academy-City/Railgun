@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace Railgun.Grammar
 {
+    public record LinePosition(int Line, int Column);
+    
     [JsonConverter(typeof(StringEnumConverter))]
     public enum TokenType
     {
@@ -27,7 +30,7 @@ namespace Railgun.Grammar
         Eof
     }
     
-    public record Token(TokenType Kind, string Value);
+    public record Token(TokenType Kind, string Value, int Position);
 
     public abstract class BaseLexer
     {
@@ -35,6 +38,26 @@ namespace Railgun.Grammar
         protected string Source;
         protected char Current => Source[Pos];
         protected bool Eof => Pos >= Source.Length;
+
+        public static LinePosition CalculatePosition(string src, int position)
+        {
+            var row = 1;
+            var col = 1;
+            for (var i = 0; i < position; i++)
+            {
+                var c = src[i];
+                if (c == '\n')
+                {
+                    row++;
+                    col = 0;
+                }
+                else
+                {
+                    col++;
+                }
+            }
+            return new LinePosition(row, col);
+        }
         
         protected char Next()
         {
@@ -53,6 +76,7 @@ namespace Railgun.Grammar
         
         protected Token String()
         {
+            var startingPos = Pos;
             MustBe('"');
             var d = "";
             while (Current != '"')
@@ -66,7 +90,7 @@ namespace Railgun.Grammar
                         't' => '\t',
                         'r' => '\r',
                         '\\' => '\\',
-                        _ => throw new Exception("Unexpected Escape")
+                        _ => throw new Exception("Unexpected Escape at " + Pos)
                     };
                 }
                 else
@@ -75,7 +99,7 @@ namespace Railgun.Grammar
                 }
             }
             MustBe('"');
-            return new Token(TokenType.String, d);
+            return new Token(TokenType.String, d, startingPos);
         }
         
         protected static bool IsSymbol(char c, bool start = false)
@@ -87,6 +111,7 @@ namespace Railgun.Grammar
 
         protected Token Numeric()
         {
+            var startingPos = Pos;
             var v = "";
             while (!Eof && char.IsNumber(Current))
             {
@@ -101,17 +126,18 @@ namespace Railgun.Grammar
                     v += Next();
                 }
             }
-            return new Token(TokenType.Numeric, v);
+            return new Token(TokenType.Numeric, v, startingPos);
         }
 
         protected Token Name()
         {
-            var v = "";
+            var startingPos = Pos;
+            var name = "";
             while (!Eof && IsSymbol(Current))
             {
-                v += Next();
+                name += Next();
             }
-            return new Token(TokenType.NameSymbol, v);
+            return new Token(TokenType.NameSymbol, name, startingPos);
         }
     }
     
@@ -155,15 +181,15 @@ namespace Railgun.Grammar
                 {
                     list.Add(Current switch
                     {
-                        '(' => new Token(TokenType.LParen, ""),
-                        ')' => new Token(TokenType.RParen, ""),
-                        '[' => new Token(TokenType.LBracket, ""),
-                        ']' => new Token(TokenType.RBracket, ""),
-                        '\'' => new Token(TokenType.Quote, ""),
-                        '`' => new Token(TokenType.Quasiquote, ""), 
-                        ',' => new Token(TokenType.Unquote, ""),
+                        '(' => new Token(TokenType.LParen, "", Pos),
+                        ')' => new Token(TokenType.RParen, "", Pos),
+                        '[' => new Token(TokenType.LBracket, "", Pos),
+                        ']' => new Token(TokenType.RBracket, "", Pos),
+                        '\'' => new Token(TokenType.Quote, "", Pos),
+                        '`' => new Token(TokenType.Quasiquote, "", Pos), 
+                        ',' => new Token(TokenType.Unquote, "", Pos),
                         
-                        _ => throw new Exception("unexpected token")
+                        _ => throw new Exception("unexpected token at " + Pos)
                     });
                     Pos++;
                 }
@@ -172,7 +198,7 @@ namespace Railgun.Grammar
                     throw new Exception("unexpected token");
                 }
             }
-            list.Add(new Token(TokenType.Eof, ""));
+            list.Add(new Token(TokenType.Eof, "", Pos));
             return list;
         }
     }

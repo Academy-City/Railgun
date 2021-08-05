@@ -8,6 +8,16 @@ using Railgun.Types;
 
 namespace Railgun.Runtime
 {
+    public record RailgunExternConstructor(Type Type) : IRailgunClosure
+    {
+        public object Eval(RailgunRuntime runtime, Seq args)
+        {
+            return Activator.CreateInstance(Type, args.ToArray());
+        }
+
+        public bool IsMacro { get; } = false;
+    }
+    
     public class RailgunRuntimeException : Exception
     {
         public RailgunRuntimeException(string message) : base(message)
@@ -65,6 +75,15 @@ namespace Railgun.Runtime
                 Console.WriteLine(x[0]);
                 return null;
             });
+            NewFn("idx", x =>
+            {
+                var coll = (dynamic) x[0];
+                var i = (dynamic) x[1];
+                return coll[i];
+            });
+            
+            NewFn("list", x => x.ToList());
+
             NewFn("macroexpand", x => ExpandMacros(x[0], Globals));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
@@ -75,15 +94,19 @@ namespace Railgun.Runtime
 
         private const string SweetPrelude = @"
 let let-macro
-    macro [name args & body]
+    macro (name args & body)
         quasiquote
             let ,name ,(concat `(macro ,args) body)
 
-let-macro let-fn [name args & body]
+let-macro let-fn (name args & body)
     quasiquote
         let ,name ,(concat `(fn ,args) body)
 
-let-macro use-as [var name]
+let-macro def (category name & body)
+    quasiquote
+        let ,name ,(concat `(,category) body)
+
+let-macro use-as (var name)
     quasiquote
         let ,var (use ,name)
 ";
@@ -142,6 +165,8 @@ let-macro use-as [var name]
             {
                 if (x is Cell c && TryGetMacro(c.Head, env, out var mac))
                 {
+                    // Console.WriteLine("mac expand");
+                    // Console.WriteLine(c.Head);
                     return ExpandMacros(mac.Eval(this, c.Tail), env);
                 }
                 return x;
@@ -163,7 +188,7 @@ let-macro use-as [var name]
                             var (fnArgs, fnBody) = (Cell) c.Tail;
 
                             return new RailgunFn(
-                                ((List<object>) fnArgs)
+                                ((Cell) fnArgs)
                                 .Select(n => ((NameExpr) n).Name)
                                 .ToArray(),
                                 fnBody, h.Name == "macro");
@@ -194,6 +219,8 @@ let-macro use-as [var name]
                         var rest = seq.Tail;
                         switch (n.Name)
                         {
+                            case "struct":
+                                return new RecordType(rest.Select(s => ((NameExpr) s).Name).ToList());
                             case "quote":
                                 return ((Cell) rest).Head;
                             case "quasiquote":
@@ -251,21 +278,22 @@ let-macro use-as [var name]
                                 return uenv;
                             case ".":
                                 var (dotRoot, dotRest) = (Cell) rest;
-                                return dotRest.Aggregate(Eval(dotRoot, env), (current, wx) =>
+                                return dotRest.Aggregate(Eval(dotRoot, env), (current, wx) => 
                                     ((IDottable) current).DotGet(((NameExpr) wx).Name));
                         }
                     }
                     var fn = Eval(seq.Head, env);
-                    if (Eval(seq.Head, env) is not IRailgunClosure lfn)
+                    if (fn is not IRailgunClosure lfn)
+                    {
                         throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
-                    
+                    }
                     if (lfn.IsMacro)
                     {
                         throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                     }
+
                     var fnArgs = seq.Tail.Map(x => Eval(x, env));
                     return lfn.Eval(this, fnArgs);
-            
                 default:
                     return ex;
             }
