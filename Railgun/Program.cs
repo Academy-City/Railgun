@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
+using System.Text;
 using Cocona;
 using Railgun.Grammar;
 using Railgun.Runtime;
@@ -10,6 +12,7 @@ namespace Railgun
     {
         public static void Main(string[] args)
         {
+            Console.OutputEncoding = Console.InputEncoding = Encoding.Unicode;
             CoconaApp.Run<Program>(args);
         }
 
@@ -27,7 +30,7 @@ namespace Railgun
                 var text = Console.ReadLine();
                 if (text == ".exit")
                 {
-                    break;
+                    throw new CommandExitedException(0);
                 }
 
                 try

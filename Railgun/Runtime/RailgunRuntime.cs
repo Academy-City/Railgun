@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Railgun.Grammar;
 using Railgun.Grammar.Sweet;
 using Railgun.Types;
@@ -28,6 +29,13 @@ namespace Railgun.Runtime
 
     public class RailgunRuntime
     {
+        private static string LoadEmbeddedFile(string name)
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name);
+            using var reader = new StreamReader(stream!);
+            return reader.ReadToEnd();
+        }
+        
         private readonly string _workingDirectory;
         public readonly RailgunEnvironment Globals = new();
 
@@ -99,31 +107,8 @@ namespace Railgun.Runtime
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
                 (cx, fn) => ((IRailgunClosure) fn).Eval(this, new Cell(cx, Nil.Value))));
             
-            RunProgram(new SweetParser(SweetPrelude).ParseSweetProgram());
+            RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
         }
-
-        private const string SweetPrelude = @"
-let let-macro
-    macro (name args & body)
-        quasiquote
-            let ,name ,(concat `(macro ,args) body)
-
-let-macro let-fn (name args & body)
-    quasiquote
-        let ,name ,(concat `(fn ,args) body)
-
-let-macro def (category name & body)
-    quasiquote
-        let ,name ,(concat `(,category) body)
-
-let-macro use-as (var name)
-    quasiquote
-        let ,var (use ,name)
-
-let-macro foreach (item iter & body)
-    quasiquote
-        foreach-fn ,iter ,(concat `(fn (,item)) body)
-";
 
         private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
         {
@@ -197,6 +182,8 @@ let-macro foreach (item iter & body)
                 {
                     switch (h.Name)
                     {
+                        case "struct":
+                            return new StructType(c.Tail.Select(s => ((NameExpr) s).Name).ToList());
                         case "fn":
                         case "macro":
                             var (fnArgs, fnBody) = (Cell) c.Tail;
@@ -233,8 +220,6 @@ let-macro foreach (item iter & body)
                         var rest = seq.Tail;
                         switch (n.Name)
                         {
-                            case "struct":
-                                return new RecordType(rest.Select(s => ((NameExpr) s).Name).ToList());
                             case "quote":
                                 return ((Cell) rest).Head;
                             case "quasiquote":
@@ -268,10 +253,10 @@ let-macro foreach (item iter & body)
                                     }
                                 }
                                 return null;
+                            case "struct":
                             case "fn":
                             case "macro": 
                                 throw new RailgunRuntimeException("Unexpected uncompiled function");
-                            // TODO: make asynchronous
                             case "use":
                                 var (uArg, _) = (Cell) rest;
                                 var uenv = new RailgunEnvironment(env);

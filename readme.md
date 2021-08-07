@@ -1,10 +1,41 @@
 ﻿# ⚡ The Railgun Programming Language
 
-The main repository for Railgun, a modern lisp. It builds upon the .NET ecosystem.
+**Warning: Railgun is currently in alpha, and none of this is production-ready. Expect syntaxes to change drastically from what is implemented so far.**
+
+The main repository for Railgun, a modern take on Lisp with a cleaner syntax and eventually, a homoiconic type system. Railgun is a Lisp with access to the full power of the Lisp ecosystem.
+
+## Expressions
+```ls
+# comments are written with a '#'
+42 # integers
+"bob" # strings
+(print "hello, world") # a sequence, with the callable as the first, and arguments as rest
+```
+
+Railgun supports sweet-expressions, provided that you use the .rgx or .⚡ file extension. This allows the outermost parentheses to be inferred.
+
+For example, a factorial without sweet-expressions:
+
+```ls
+(let-fn factorial (n)
+    # A simple recursive factorial function.
+    (if (<= n 1)
+        1
+        (* n (factorial (- n 1)))))
+```
+
+can be written as this, with sweet-expressions enabled:
+```ls
+let-fn factorial (n)
+    # A simple recursive factorial function.
+    if (<= n 1)
+        1
+        (* n (factorial (- n 1)))
+```
 
 ## Examples
 
-```railgun
+```ls
 # a struct defining a person.
 def struct Person
     name

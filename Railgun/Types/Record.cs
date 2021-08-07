@@ -4,10 +4,10 @@ using Railgun.Runtime;
 
 namespace Railgun.Types
 {
-    public class RecordType : IRailgunClosure
+    public class StructType : IRailgunClosure
     {
         public Dictionary<string, int> MembersToOffset { get; }
-        public RecordType(IReadOnlyList<string> members)
+        public StructType(IReadOnlyList<string> members)
         {
             // Console.WriteLine(JsonConvert.SerializeObject(members));
             var dict = new Dictionary<string, int>();
@@ -28,10 +28,10 @@ namespace Railgun.Types
 
     public class RailgunRecord : IDottable
     {
-        public RecordType Kind { get; }
+        public StructType Kind { get; }
         private readonly object[] _members;
 
-        public RailgunRecord(RecordType t, object[] members)
+        public RailgunRecord(StructType t, object[] members)
         {
             Kind = t;
             _members = members;

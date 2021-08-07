@@ -1,0 +1,20 @@
+﻿let let-macro
+    macro (name args & body)
+        quasiquote
+            let ,name ,(concat `(macro ,args) body)
+
+let-macro let-fn (name args & body)
+    quasiquote
+        let ,name ,(concat `(fn ,args) body)
+
+let-macro def (category name & body)
+    quasiquote
+        let ,name ,(concat `(,category) body)
+
+let-macro use-as (var name)
+    quasiquote
+        let ,var (use ,name)
+
+let-macro foreach (item iter & body)
+    quasiquote
+        foreach-fn ,iter ,(concat `(fn (,item)) body)
