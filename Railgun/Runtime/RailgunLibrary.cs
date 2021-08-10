@@ -14,6 +14,7 @@ namespace Railgun.Runtime
                 Seq s => "(" + string.Join(" ", s.Select(Repr)) + ")",
                 List<object> l => "[" + string.Join(" ", l.Select(Repr)) + "]",
                 string s => SymbolDisplay.FormatLiteral(s, true),
+                null => "null",
                 _ => o.ToString()
             };
         }

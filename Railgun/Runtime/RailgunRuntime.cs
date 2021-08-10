@@ -91,6 +91,10 @@ namespace Railgun.Runtime
             });
             
             NewFn("list", x => x.ToList());
+            NewFn("seq", x =>
+            {
+                return Seq.Create(x);
+            });
             NewFn("foreach-fn", x =>
             {
                 var list = (IEnumerable<object>) x[0];
@@ -109,30 +113,24 @@ namespace Railgun.Runtime
             
             RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
         }
-
-        private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
+        
+        public object DesugarQuasiquotes(object ex, int depth = 0)
         {
-            if (ex is Seq seq)
+            if (ex is not Seq s) return depth == 0 ? ex : Seq.Create(new []{ new NameExpr("quote"), ex });
+            if (s is Cell {Head: NameExpr name} c)
             {
-                if (seq is not Cell c || c.Head is not NameExpr n)
-                    return depth != 0 ? seq.Map(x => WalkQuasiquote(x, fn, depth)) : fn(ex);
-
-                return n.Name switch
+                switch (name.Name)
                 {
-                    "quasiquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth + 1),
-                    "unquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth - 1),
-                    _ => depth != 0 ? seq.Map(x => WalkQuasiquote(x, fn, depth)) : fn(ex)
-                };
+                    case "quasiquote":
+                        return DesugarQuasiquotes(((Cell) c.Tail).Head, depth + 1);
+                    case "unquote":
+                        return DesugarQuasiquotes(((Cell) c.Tail).Head, depth - 1);
+                }
             }
 
-            return depth == 0 ? fn(ex) : ex;
-        }
-        
-        // evaluates unquoted values inside quasiquotes
-        // eval is only allowed at depth 0
-        private object EvalQuasiquote(object ex, IEnvironment env)
-        {
-            return WalkQuasiquote(ex, x => Eval(x, env));
+            var nseq = s.Map(x => DesugarQuasiquotes(x, depth));
+            // return nseq;
+            return depth == 0 ? nseq : new Cell(new NameExpr("seq"), nseq);
         }
 
         private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunClosure mac)
@@ -160,43 +158,36 @@ namespace Railgun.Runtime
 
         private object ExpandMacros(object ex, IEnvironment env)
         {
-            return WalkQuasiquote(ex, x =>
+            if (ex is Cell c && TryGetMacro(c.Head, env, out var mac))
             {
-                if (x is Cell c && TryGetMacro(c.Head, env, out var mac))
-                {
-                    // Console.WriteLine("mac expand");
-                    // Console.WriteLine(c.Head);
-                    return ExpandMacros(mac.Eval(this, c.Tail), env);
-                }
-                return x;
-            });
+                return ExpandMacros(mac.Eval(this, c.Tail), env);
+            }
+            return ex;
         }
         
         private static object CompileFunctions(object ex)
         {
-            return WalkQuasiquote(ex, x =>
-            {
-                if (x is not Cell c) return x;
+            if (ex is not Cell c) return ex;
                 
-                if (c.Head is NameExpr h)
+            if (c.Head is NameExpr h)
+            {
+                switch (h.Name)
                 {
-                    switch (h.Name)
-                    {
-                        case "struct":
-                            return new StructType(c.Tail.Select(s => ((NameExpr) s).Name).ToList());
-                        case "fn":
-                        case "macro":
-                            var (fnArgs, fnBody) = (Cell) c.Tail;
+                    // don't interfere further
+                    case "struct":
+                        return new StructType(c.Tail.Select(s => ((NameExpr) s).Name).ToList());
+                    case "fn":
+                    case "macro":
+                        var (fnArgs, fnBody) = (Cell) c.Tail;
 
-                            return new RailgunFn(
-                                ((Cell) fnArgs)
-                                .Select(n => ((NameExpr) n).Name)
-                                .ToArray(),
-                                fnBody, h.Name == "macro");
-                    }
+                        return new RailgunFn(
+                            ((Cell) fnArgs)
+                            .Select(n => ((NameExpr) n).Name)
+                            .ToArray(),
+                            fnBody, h.Name == "macro");
                 }
-                return c.Map(CompileFunctions);
-            });
+            }
+            return c.Map(CompileFunctions);
         }
 
         public object Eval(object ex, IEnvironment env = null, bool topLevel = false)
@@ -204,6 +195,7 @@ namespace Railgun.Runtime
             env ??= Globals;
             if (topLevel)
             {
+                ex = DesugarQuasiquotes(ex);
                 ex = ExpandMacros(ex, env);
                 ex = CompileFunctions(ex);
             }
@@ -223,7 +215,7 @@ namespace Railgun.Runtime
                             case "quote":
                                 return ((Cell) rest).Head;
                             case "quasiquote":
-                                return EvalQuasiquote(seq, env);
+                                throw new RailgunRuntimeException("Why isn't this quasiquote desugared yet?");
                             case "let":
                                 var (letVars, _) = rest.TakeN(2);
                                 return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);
