@@ -9,24 +9,6 @@ using Railgun.Types;
 
 namespace Railgun.Runtime
 {
-    public record RailgunExternConstructor(Type Type) : IRailgunClosure
-    {
-        public object Eval(RailgunRuntime runtime, Seq args)
-        {
-            return Activator.CreateInstance(Type, args.ToArray());
-        }
-
-        public bool IsMacro { get; } = false;
-    }
-    
-    public class RailgunRuntimeException : Exception
-    {
-        public RailgunRuntimeException(string message) : base(message)
-        {
-            
-        }
-    }
-
     public class RailgunRuntime
     {
         private static string LoadEmbeddedFile(string name)
@@ -113,25 +95,6 @@ namespace Railgun.Runtime
             
             RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
         }
-        
-        public object DesugarQuasiquotes(object ex, int depth = 0)
-        {
-            if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex);
-            if (s is Cell {Head: NameExpr name} c)
-            {
-                switch (name.Name)
-                {
-                    case "quasiquote":
-                        return DesugarQuasiquotes(((Cell) c.Tail).Head, depth + 1);
-                    case "unquote":
-                        return DesugarQuasiquotes(((Cell) c.Tail).Head, depth - 1);
-                }
-            }
-
-            var nseq = s.Map(x => DesugarQuasiquotes(x, depth));
-            // return nseq;
-            return depth == 0 ? nseq : new Cell(new NameExpr("seq"), nseq);
-        }
 
         private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunClosure mac)
         {
@@ -152,42 +115,16 @@ namespace Railgun.Runtime
                     break;
                 }
             }
-
             return false;
         }
 
         private object ExpandMacros(object ex, IEnvironment env)
         {
-            if (ex is Cell c && TryGetMacro(c.Head, env, out var mac))
+            while (ex is Cell c && TryGetMacro(c.Head, env, out var mac))
             {
-                return ExpandMacros(mac.Eval(this, c.Tail), env);
+                ex = mac.Eval(this, c.Tail);
             }
             return ex;
-        }
-        
-        private static object CompileFunctions(object ex)
-        {
-            if (ex is not Cell c) return ex;
-                
-            if (c.Head is NameExpr h)
-            {
-                switch (h.Name)
-                {
-                    // don't interfere further
-                    case "struct":
-                        return new StructType(c.Tail.Select(s => ((NameExpr) s).Name).ToList());
-                    case "fn":
-                    case "macro":
-                        var (fnArgs, fnBody) = (Cell) c.Tail;
-
-                        return new RailgunFn(
-                            ((Cell) fnArgs)
-                            .Select(n => ((NameExpr) n).Name)
-                            .ToArray(),
-                            fnBody, h.Name == "macro");
-                }
-            }
-            return c.Map(CompileFunctions);
         }
 
         public object Eval(object ex, IEnvironment env = null, bool topLevel = false)
@@ -195,9 +132,9 @@ namespace Railgun.Runtime
             env ??= Globals;
             if (topLevel)
             {
-                ex = DesugarQuasiquotes(ex);
+                ex = Optimizer.DesugarQuasiquotes(ex);
                 ex = ExpandMacros(ex, env);
-                ex = CompileFunctions(ex);
+                ex = Optimizer.CompileFunctions(ex);
             }
 
             switch (ex)
@@ -216,7 +153,11 @@ namespace Railgun.Runtime
                         {
                             case "quote":
                             case "quasiquote":
-                                throw new RailgunRuntimeException("Why aren't you desugared yet?");
+                            case "struct":
+                            case "fn":
+                            case "macro": 
+                                throw new RailgunRuntimeException(
+                                    $"Undesugared {n.Name} expression. Most likely a compiler bug.");
                             case "let":
                                 var (letVars, _) = rest.TakeN(2);
                                 return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);
@@ -246,10 +187,6 @@ namespace Railgun.Runtime
                                     }
                                 }
                                 return null;
-                            case "struct":
-                            case "fn":
-                            case "macro": 
-                                throw new RailgunRuntimeException("Unexpected uncompiled function");
                             case "use":
                                 var (uArg, _) = (Cell) rest;
                                 var uenv = new RailgunEnvironment(env);
