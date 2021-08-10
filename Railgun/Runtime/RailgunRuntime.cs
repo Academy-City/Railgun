@@ -41,21 +41,21 @@ namespace Railgun.Runtime
 
         private void NewFn(string name, Func<object[], object> body)
         {
-            Globals[name] = new BuiltinClosure(body);
+            Globals.Let(name, new BuiltinClosure(body));
         }
         
         private void NewMacro(string name, Func<object[], object> body)
         {
-            Globals[name] = new BuiltinClosure(body, true);
+            Globals.Let(name, new BuiltinClosure(body, true));
         }
         
         public RailgunRuntime(string workingDirectory = "")
         {
             _workingDirectory = workingDirectory;
 
-            Globals["true"] = true;
-            Globals["false"] = false;
-            Globals["nil"] = Nil.Value;
+            Globals.Let("true", true);
+            Globals.Let("false", false);
+            Globals.Let("nil", Nil.Value);
 
             NewFn("car", x => (x[0] as Cell)?.Head);
             NewFn("cdr", x => (x[0] as Cell)?.Tail);
@@ -110,22 +110,21 @@ namespace Railgun.Runtime
             RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
         }
 
-        private static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
+        public static object WalkQuasiquote(object ex, Func<object, object> fn, int depth = 0)
         {
-            if (ex is Seq seq)
+            if (ex is not Seq seq) return depth == 0 ? fn(ex) : ex;
+            // Seq is not evaluatable (does not have a head that is a NameExpr)
+            // in this case, evaluate for its children, if not subquoted
+            if (seq is not Cell c || seq.First() is not NameExpr n)
+                return depth == 0 ? fn(ex) : seq.Map(x => WalkQuasiquote(x, fn, depth));
+
+            return n.Name switch
             {
-                if (seq is not Cell c || c.Head is not NameExpr n)
-                    return depth != 0 ? seq.Map(x => WalkQuasiquote(x, fn, depth)) : fn(ex);
+                "quasiquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth + 1),
+                "unquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth - 1),
+                _ => depth == 0 ? fn(ex) : seq.Map(x => WalkQuasiquote(x, fn, depth))
+            };
 
-                return n.Name switch
-                {
-                    "quasiquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth + 1),
-                    "unquote" => WalkQuasiquote(((Cell) c.Tail).Head, fn, depth - 1),
-                    _ => depth != 0 ? seq.Map(x => WalkQuasiquote(x, fn, depth)) : fn(ex)
-                };
-            }
-
-            return depth == 0 ? fn(ex) : ex;
         }
         
         // evaluates unquoted values inside quasiquotes
@@ -164,8 +163,6 @@ namespace Railgun.Runtime
             {
                 if (x is Cell c && TryGetMacro(c.Head, env, out var mac))
                 {
-                    // Console.WriteLine("mac expand");
-                    // Console.WriteLine(c.Head);
                     return ExpandMacros(mac.Eval(this, c.Tail), env);
                 }
                 return x;
@@ -226,7 +223,7 @@ namespace Railgun.Runtime
                                 return EvalQuasiquote(seq, env);
                             case "let":
                                 var (letVars, _) = rest.TakeN(2);
-                                return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);
+                                return env.Let(((NameExpr) letVars[0]).Name, Eval(letVars[1], env));
                             case "set":
                                 var (setVars, _) = rest.TakeN(2);
                                 return env.Set(((NameExpr) setVars[0]).Name, Eval(setVars[1], env));
@@ -280,8 +277,7 @@ namespace Railgun.Runtime
                         throw new RailgunRuntimeException("Macros should not be evaluating this late.");
                     }
 
-                    var fnArgs = seq.Tail.Map(x => Eval(x, env));
-                    return lfn.Eval(this, fnArgs);
+                    return lfn.Eval(this, seq.Tail.Map(x => Eval(x, env)));
                 default:
                     return ex;
             }

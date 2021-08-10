@@ -63,6 +63,8 @@ namespace Railgun.Grammar
                     return ParseSequence();
                 case TokenType.LBracket:
                     return ParseList();
+                case TokenType.LBrace:
+                    return ParseCurlyInfix();
                 case TokenType.RParen:
                 case TokenType.RBracket:
                     throw new ParseException($"Unexpected \"{Current.Value}\"", Current.Position);
@@ -123,13 +125,22 @@ namespace Railgun.Grammar
             return list;
         }
 
+        public Seq ParseCurlyInfix()
+        {
+            var s = ParseCollection(TokenType.LBrace, TokenType.RBrace);
+            if (s.Count == 3)
+            {
+                return Seq.Create(new[] {s[1], s[0], s[2]});
+            }
+            throw new NotImplementedException();
+        }
+
         public Seq ParseList()
         {
-            var w = new[]
+            return Seq.Create(new[]
             {
-                new NameExpr("list"),
-            }.Concat(ParseCollection(TokenType.LBracket, TokenType.RBracket));
-            return Seq.Create(w);
+                new NameExpr("list")
+            }.Concat(ParseCollection(TokenType.LBracket, TokenType.RBracket)));
         }
 
         public Seq ParseSequence()

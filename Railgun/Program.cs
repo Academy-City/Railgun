@@ -1,8 +1,8 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using Cocona;
+using Railgun.Compiler;
 using Railgun.Grammar;
 using Railgun.Runtime;
 
@@ -67,6 +67,7 @@ namespace Railgun
         [Command("run")]
         public void Run(string entry = "./main")
         {
+            new CompilerCore().DoStuff();
             var workingDir = Directory.GetCurrentDirectory();
             var runtime = new RailgunRuntime(workingDir);
 

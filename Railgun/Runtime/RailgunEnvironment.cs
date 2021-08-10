@@ -4,8 +4,10 @@ namespace Railgun.Runtime
 {
     public interface IEnvironment
     {
-        object this[string key] { get; set; }
+        object this[string key] { get; }
         object Set(string key, object value);
+        object Let(string key, object value);
+
     }
     
     public class RailgunEnvironment : IEnvironment, IDottable
@@ -21,7 +23,12 @@ namespace Railgun.Runtime
         public object this[string key]
         {
             get => _dict.TryGetValue(key, out var v) ? v : _parent?[key];
-            set => _dict[key] = value;
+        }
+
+        public object Let(string key, object value)
+        {
+            _dict[key] = value;
+            return value;
         }
 
         public object Set(string key, object value)

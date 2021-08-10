@@ -50,13 +50,13 @@ namespace Railgun.Runtime
             foreach (var argName in Args)
             {
                 var (argValue, tail) = (Cell) args;
-                env[argName] = argValue;
+                env.Let(argName, argValue);
                 args = tail;
             }
 
             if (IsVariadic != "")
             {
-                env[IsVariadic] = Seq.Create(args);
+                env.Let(IsVariadic, Seq.Create(args));
             }
         }
 

@@ -101,7 +101,7 @@ namespace Railgun.Grammar.Sweet
                 {
                     list.Add(Name());
                 }
-                else if ("()[]'`,".Contains(Current))
+                else if ("()[]{}'`,".Contains(Current))
                 {
                     list.Add(Current switch
                     {
@@ -109,6 +109,8 @@ namespace Railgun.Grammar.Sweet
                         ')' => new Token(TokenType.RParen, ")", Pos),
                         '[' => new Token(TokenType.LBracket, "[", Pos),
                         ']' => new Token(TokenType.RBracket, "]", Pos),
+                        '{' => new Token(TokenType.LBrace, "{", Pos),
+                        '}' => new Token(TokenType.RBrace, "}", Pos),
                         '\'' => new Token(TokenType.Quote, "\\", Pos),
                         '`' => new Token(TokenType.Quasiquote, "`", Pos), 
                         ',' => new Token(TokenType.Unquote, ",", Pos),

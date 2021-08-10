@@ -1,12 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace Railgun.Grammar
 {
-    public record LinePosition(int Line, int Column);
+    public record LinePosition(int Line, int Column)
+    {
+        public override string ToString()
+        {
+            return $"{Line}:{Column}";
+        }
+    }
     
     [JsonConverter(typeof(StringEnumConverter))]
     public enum TokenType
@@ -15,6 +19,8 @@ namespace Railgun.Grammar
         RParen,
         LBracket,
         RBracket,
+        LBrace,
+        RBrace,
         
         NameSymbol,
         Numeric,
@@ -173,7 +179,7 @@ namespace Railgun.Grammar
                 {
                     list.Add(Name());
                 }
-                else if ("()[]'`,".Contains(Current))
+                else if ("()[]{}'`,".Contains(Current))
                 {
                     list.Add(Current switch
                     {
@@ -181,6 +187,8 @@ namespace Railgun.Grammar
                         ')' => new Token(TokenType.RParen, ")", Pos),
                         '[' => new Token(TokenType.LBracket, "[", Pos),
                         ']' => new Token(TokenType.RBracket, "]", Pos),
+                        '{' => new Token(TokenType.LBrace, "{", Pos),
+                        '}' => new Token(TokenType.RBrace, "}", Pos),
                         '\'' => new Token(TokenType.Quote, "\\", Pos),
                         '`' => new Token(TokenType.Quasiquote, "`", Pos), 
                         ',' => new Token(TokenType.Unquote, ",", Pos),
