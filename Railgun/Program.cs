@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text;
 using Cocona;
 using Railgun.Grammar;
+using Railgun.Grammar.Sweet;
 using Railgun.Runtime;
 
 namespace Railgun
@@ -35,14 +36,14 @@ namespace Railgun
 
                 try
                 {
-                    var exs = new Parser(text).ParseProgram();
+                    var exs = new SweetParser(text).ParseSweetProgram();
                     if (exs.Length == 1)
                     {
                         var x = runtime.Eval(exs[0], topLevel: true);
                         if (x != null)
                         {
                             Console.ForegroundColor = ConsoleColor.DarkYellow;
-                            Console.WriteLine(x);   
+                            Console.WriteLine(RailgunLibrary.Repr(x));
                         }
                     }
                     else

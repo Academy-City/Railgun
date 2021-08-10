@@ -13,6 +13,7 @@ namespace Railgun.Runtime
             {
                 Seq s => "(" + string.Join(" ", s.Select(Repr)) + ")",
                 List<object> l => "[" + string.Join(" ", l.Select(Repr)) + "]",
+                QuoteExpr q => $"'{Repr(q.Data)}",
                 string s => SymbolDisplay.FormatLiteral(s, true),
                 null => "null",
                 _ => o.ToString()
