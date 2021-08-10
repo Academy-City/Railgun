@@ -116,7 +116,7 @@ namespace Railgun.Runtime
         
         public object DesugarQuasiquotes(object ex, int depth = 0)
         {
-            if (ex is not Seq s) return depth == 0 ? ex : Seq.Create(new []{ new NameExpr("quote"), ex });
+            if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex);
             if (s is Cell {Head: NameExpr name} c)
             {
                 switch (name.Name)
@@ -204,6 +204,8 @@ namespace Railgun.Runtime
             {
                 case IRailgunFn cm:
                     return cm.BuildClosure(env);
+                case QuoteExpr q:
+                    return q.Data;
                 case NameExpr nex:
                     return env[nex.Name];
                 case Cell seq: // function-like
@@ -213,9 +215,8 @@ namespace Railgun.Runtime
                         switch (n.Name)
                         {
                             case "quote":
-                                return ((Cell) rest).Head;
                             case "quasiquote":
-                                throw new RailgunRuntimeException("Why isn't this quasiquote desugared yet?");
+                                throw new RailgunRuntimeException("Why aren't you desugared yet?");
                             case "let":
                                 var (letVars, _) = rest.TakeN(2);
                                 return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);

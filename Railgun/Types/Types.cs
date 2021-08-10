@@ -4,4 +4,7 @@
     {
         public override string ToString() => Name;
     }
+
+    // yes, I'm bringing this back.
+    public record QuoteExpr(object Data);
 }
