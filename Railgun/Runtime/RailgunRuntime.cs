@@ -124,6 +124,7 @@ namespace Railgun.Runtime
                 ex = mac.Eval(this, c.Tail);
             }
 
+            // expand the subexpressions after expanding the top cell
             if (ex is Cell cc)
             {
                 return cc.Map(x => ExpandMacros(x, env));
@@ -137,7 +138,7 @@ namespace Railgun.Runtime
             if (topLevel)
             {
                 ex = ExpandMacros(ex, env);
-                // Console.WriteLine(RailgunLibrary.Repr(ex));
+                Console.WriteLine(RailgunLibrary.Repr(ex));
                 // compilation pass
                 ex = Optimizer.CompileFunctions(ex);
             }

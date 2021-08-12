@@ -5,6 +5,9 @@ namespace Railgun.Runtime
 {
     public static class Optimizer
     {
+        /// <summary>
+        /// Converts a tree of quasiquotes and unquotes into regular quotes.
+        /// </summary>
         public static object LowerQuasiquotes(object ex, int depth = 0)
         {
             if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex).Lower();
@@ -18,10 +21,9 @@ namespace Railgun.Runtime
                         return LowerQuasiquotes(((Cell) c.Tail).Head, depth - 1);
                 }
             }
-            
-            var nseq = s.Map(x => LowerQuasiquotes(x, depth));
-            // return nseq;
-            return depth == 0 ? nseq : new Cell(new NameExpr("seq"), nseq);
+
+            return depth == 0 ? s :
+                new Cell(new NameExpr("seq"), s.Map(x => LowerQuasiquotes(x, depth)));
         }
         
         public static object CompileFunctions(object ex)
