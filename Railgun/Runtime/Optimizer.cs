@@ -5,21 +5,21 @@ namespace Railgun.Runtime
 {
     public static class Optimizer
     {
-        public static object DesugarQuasiquotes(object ex, int depth = 0)
+        public static object LowerQuasiquotes(object ex, int depth = 0)
         {
-            if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex);
+            if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex).Lower();
             if (s is Cell {Head: NameExpr name} c)
             {
                 switch (name.Name)
                 {
                     case "quasiquote":
-                        return DesugarQuasiquotes(((Cell) c.Tail).Head, depth + 1);
+                        return LowerQuasiquotes(((Cell) c.Tail).Head, depth + 1);
                     case "unquote":
-                        return DesugarQuasiquotes(((Cell) c.Tail).Head, depth - 1);
+                        return LowerQuasiquotes(((Cell) c.Tail).Head, depth - 1);
                 }
             }
-
-            var nseq = s.Map(x => DesugarQuasiquotes(x, depth));
+            
+            var nseq = s.Map(x => LowerQuasiquotes(x, depth));
             // return nseq;
             return depth == 0 ? nseq : new Cell(new NameExpr("seq"), nseq);
         }

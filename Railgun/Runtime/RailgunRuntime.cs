@@ -55,10 +55,10 @@ namespace Railgun.Runtime
             NewFn(">=", x => (dynamic) x[0] >= (dynamic) x[1]);
             NewFn("<", x => (dynamic) x[0] < (dynamic) x[1]);
             NewFn(">", x => (dynamic) x[0] > (dynamic) x[1]);
-            
-            NewFn("concat", x => Seq.Create(
-                ((Seq) x[0]).Concat((Seq) x[1])
-            ));
+            NewFn("concat", xs =>
+            {
+                return Seq.Create(xs.SelectMany(x => (Seq) x));
+            });
             NewFn("repr", x => RailgunLibrary.Repr(x[0]));
             NewFn("print", x =>
             {
@@ -73,10 +73,7 @@ namespace Railgun.Runtime
             });
             
             NewFn("list", x => x.ToList());
-            NewFn("seq", x =>
-            {
-                return Seq.Create(x);
-            });
+            NewFn("seq", Seq.Create);
             NewFn("foreach-fn", x =>
             {
                 var list = (IEnumerable<object>) x[0];
@@ -92,6 +89,8 @@ namespace Railgun.Runtime
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
                 (cx, fn) => ((IRailgunClosure) fn).Eval(this, new Cell(cx, Nil.Value))));
+            
+            NewMacro("quasiquote", x => Optimizer.LowerQuasiquotes(x[0], 1));
             
             RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
         }
@@ -124,6 +123,11 @@ namespace Railgun.Runtime
             {
                 ex = mac.Eval(this, c.Tail);
             }
+
+            if (ex is Cell cc)
+            {
+                return cc.Map(x => ExpandMacros(x, env));
+            }
             return ex;
         }
 
@@ -132,8 +136,9 @@ namespace Railgun.Runtime
             env ??= Globals;
             if (topLevel)
             {
-                ex = Optimizer.DesugarQuasiquotes(ex);
                 ex = ExpandMacros(ex, env);
+                // Console.WriteLine(RailgunLibrary.Repr(ex));
+                // compilation pass
                 ex = Optimizer.CompileFunctions(ex);
             }
 
@@ -152,7 +157,6 @@ namespace Railgun.Runtime
                         switch (n.Name)
                         {
                             case "quote":
-                            case "quasiquote":
                             case "struct":
                             case "fn":
                             case "macro": 
