@@ -68,7 +68,7 @@ namespace Railgun.Grammar
                     throw new ParseException($"Unexpected \"{Current.Value}\"", Current.Position);
                 case TokenType.Quote:
                     Pos++;
-                    return new QuoteExpr(ParseExpr());
+                    return Seq.Create(new[] { new NameExpr("quote"), ParseExpr() });
                 case TokenType.Quasiquote:
                     Pos++;
                     return Seq.Create(new[] { new NameExpr("quasiquote"), ParseExpr() });
