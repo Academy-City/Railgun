@@ -69,6 +69,9 @@ namespace Railgun.Grammar
                 case TokenType.Quote:
                     Pos++;
                     return Seq.Create(new[] { new NameExpr("quote"), ParseExpr() });
+                case TokenType.UnquoteSplice:
+                    Pos++;
+                    return Seq.Create(new[] { new NameExpr("splice"), ParseExpr() });
                 case TokenType.Quasiquote:
                     Pos++;
                     return Seq.Create(new[] { new NameExpr("quasiquote"), ParseExpr() });

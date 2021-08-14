@@ -1,16 +1,16 @@
 ﻿let let-macro
     macro (name args & body)
         quasiquote
-            let ,name (macro ,args (splice body))
+            let ,name (macro ,args ,@body)
 
 let-macro let-fn (name args & body)
     quasiquote
-        let ,name (fn ,args (splice body))
+        let ,name (fn ,args ,@body)
 
 let-macro def (category name & body)
     quasiquote
         # let ,name (,category (splice body))
-        let ,name (,category (splice body))
+        let ,name (,category ,@body)
 
 let-macro use-as (var name)
     quasiquote
@@ -18,4 +18,4 @@ let-macro use-as (var name)
 
 let-macro foreach (item iter & body)
     quasiquote
-        foreach-fn ,iter (fn (,item) (splice body))
+        foreach-fn ,iter (fn (,item) ,@body)

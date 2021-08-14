@@ -101,6 +101,19 @@ namespace Railgun.Grammar.Sweet
                 {
                     list.Add(Name());
                 }
+                else if (Current == ',')
+                {
+                    if (Source[Pos + 1] == '@')
+                    {
+                        list.Add(new Token(TokenType.UnquoteSplice, ",@", Pos));
+                        Pos += 2;
+                    }
+                    else
+                    {
+                        list.Add(new Token(TokenType.Unquote, ",", Pos));
+                        Pos++;
+                    }
+                }
                 else if ("()[]'`,".Contains(Current))
                 {
                     list.Add(Current switch
