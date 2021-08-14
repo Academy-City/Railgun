@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Railgun.Types;
 
 namespace Railgun.Runtime
@@ -23,7 +25,25 @@ namespace Railgun.Runtime
             }
 
             return depth == 0 ? s :
-                new Cell(new NameExpr("seq"), s.Map(x => LowerQuasiquotes(x, depth)));
+                QuasiquoteHelper(s, depth);
+        }
+
+        public static Seq QuasiquoteHelper(Seq s, int depth)
+        {
+            Seq n = Nil.Value;
+            foreach (var item in s.Reverse())
+            {
+                if (item is Cell {Head: NameExpr {Name: "splice"}} c)
+                {
+                    var cw = ((Cell) c.Tail).Head;
+                    n = new Cell(new NameExpr("concat"), new Cell(
+                        LowerQuasiquotes(cw, depth - 1), new Cell(n, Nil.Value)));
+                    continue;
+                }
+                n = new Cell(new NameExpr("cons"), new Cell(
+                    LowerQuasiquotes(item, depth), new Cell(n, Nil.Value)));
+            }
+            return n;
         }
         
         public static object CompileFunctions(object ex)

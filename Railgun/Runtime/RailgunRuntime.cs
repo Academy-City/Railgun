@@ -38,6 +38,15 @@ namespace Railgun.Runtime
             Globals["true"] = true;
             Globals["false"] = false;
             Globals["nil"] = Nil.Value;
+            
+            // types
+            Globals["Seq"] = typeof(Seq);
+            Globals["Int"] = typeof(int);
+            Globals["Float"] = typeof(float);
+            Globals["String"] = typeof(string);
+            Globals["Bool"] = typeof(bool);
+
+            NewFn("instance?", xs => ((Type) xs[0]).IsInstanceOfType(xs[1]));
 
             NewFn("car", x => (x[0] as Cell)?.Head);
             NewFn("cdr", x => (x[0] as Cell)?.Tail);
@@ -59,6 +68,7 @@ namespace Railgun.Runtime
             {
                 return Seq.Create(xs.SelectMany(x => (Seq) x));
             });
+            
             NewFn("repr", x => RailgunLibrary.Repr(x[0]));
             NewFn("print", x =>
             {
@@ -70,6 +80,12 @@ namespace Railgun.Runtime
                 var coll = (dynamic) x[0];
                 var i = (dynamic) x[1];
                 return coll[i];
+            });
+
+            NewFn("exit", x =>
+            {
+                Environment.Exit(0);
+                return null;
             });
             
             NewFn("list", x => x.ToList());

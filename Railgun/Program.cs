@@ -24,8 +24,8 @@ namespace Railgun
             Console.WriteLine("Welcome to the Railgun REPL!");
             while (true)
             {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.Write("> ");
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.Write("⚡ ");
                 Console.ForegroundColor = ConsoleColor.White;
                 var text = Console.ReadLine();
                 if (text == ".exit")
@@ -41,7 +41,7 @@ namespace Railgun
                         var x = runtime.Eval(exs[0], topLevel: true);
                         if (x != null)
                         {
-                            Console.ForegroundColor = ConsoleColor.DarkYellow;
+                            Console.ForegroundColor = ConsoleColor.Cyan;
                             Console.WriteLine(RailgunLibrary.Repr(x));
                         }
                     }

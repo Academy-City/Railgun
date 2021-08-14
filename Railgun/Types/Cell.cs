@@ -5,9 +5,10 @@ using System.Linq;
 
 namespace Railgun.Types
 {
-    public abstract record Seq : IEnumerable<object>
+    public abstract class Seq : IEnumerable<object>
     {
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        
         public IEnumerator<object> GetEnumerator()
         {
             var t = this;
@@ -43,13 +44,29 @@ namespace Railgun.Types
         }
     }
 
-    public record Nil : Seq
+    public class Nil : Seq
     {
         private Nil() { }
         public static readonly Nil Value = new();
     }
 
-    public record Cell(object Head, Seq Tail) : Seq;
+    public class Cell : Seq
+    {
+        public object Head { get; set; }
+        public Seq Tail { get; set; }
+
+        public Cell(object head, Seq tail)
+        {
+            Head = head;
+            Tail = tail;
+        }
+
+        public void Deconstruct(out object head, out Seq tail)
+        {
+            head = Head;
+            tail = Tail;
+        }
+    }
 
     public record RailgunList(List<object> List);
 }
