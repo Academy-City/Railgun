@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using Cocona;
 using Railgun.Grammar;
@@ -19,9 +20,11 @@ namespace Railgun
         [Command("repl")]
         public void Repl()
         {
+            var version = Assembly.GetExecutingAssembly().
+                GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
             var runtime = new RailgunRuntime();
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("Welcome to the Railgun REPL!");
+            Console.WriteLine($"Welcome to the Railgun Interactive Environment version {version}!");
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;

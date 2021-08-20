@@ -9,7 +9,6 @@ let-macro let-fn (name args & body)
 
 let-macro def (category name & body)
     quasiquote
-        # let ,name (,category (splice body))
         let ,name (,category ,@body)
 
 let-macro use-as (var name)

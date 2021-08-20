@@ -16,6 +16,7 @@ namespace Railgun.Runtime
                 QuoteExpr q => $"'{Repr(q.Data)}",
                 string s => SymbolDisplay.FormatLiteral(s, true),
                 null => "null",
+                bool b => b ? "true" : "false",
                 _ => o.ToString()
             };
         }

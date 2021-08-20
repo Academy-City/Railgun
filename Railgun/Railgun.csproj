@@ -6,6 +6,8 @@
 
         <PublishSingleFile>true</PublishSingleFile>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <ProductName>Railgun</ProductName>
+        <InformationalVersion>0.0.2</InformationalVersion>
     </PropertyGroup>
 
     <ItemGroup>

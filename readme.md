@@ -30,7 +30,7 @@ let-fn factorial (n)
     # A simple recursive factorial function.
     if (<= n 1)
         1
-        (* n (factorial (- n 1)))
+        * n (factorial (- n 1))
 ```
 
 ## Examples
