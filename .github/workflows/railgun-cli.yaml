@@ -45,7 +45,7 @@ jobs:
 
       # Create the app package by building and packaging the Windows Application Packaging project
       - name: Publish the application
-        run: dotnet publish
+        run: dotnet publish Railgun -c Release
 
       # Upload the MSIX package: https://github.com/marketplace/actions/upload-artifact
       - name: Upload build artifacts
