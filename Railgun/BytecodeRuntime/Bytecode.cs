@@ -75,57 +75,7 @@ namespace Railgun.BytecodeRuntime
         {
             var nenv = new RailgunEnvironment(env);
             SetupArgs(args, nenv);
-            
-            // TODO: use the bytecode interpreter
-            var stack = new Stack<object>();
-            var inst = 0;
-            while (inst < Body.Count)
-            {
-                switch (Body[inst])
-                {
-                    case Call call:
-                        Seq p = Nil.Value;
-                        for (var i = 0; i < call.Arity; i++)
-                        {
-                            p = new Cell(stack.Pop(), p);
-                        }
-
-                        var fnToCall = (IRailgunClosure) stack.Pop();
-                        var res = fnToCall.Eval(runtime, p);
-                        stack.Push(res);
-                        break;
-                    case Constant constant:
-                        stack.Push(constant.Value);
-                        break;
-                    case CreateClosure closure:
-                        stack.Push(closure.Fn.BuildClosure(env));
-                        break;
-                    case Jump jump:
-                        inst = jump.Location - 1;
-                        break;
-                    case JumpIfElse jumpIfElse:
-                        inst = ((bool) stack.Pop() ? jumpIfElse.IfTrue : jumpIfElse.IfFalse) - 1;
-                        break;
-                    case Load load:
-                        stack.Push(nenv[load.Name]);
-                        break;
-                    case Pop pop:
-                        var popVal = stack.Pop();
-                        if (pop.Name != "_")
-                        {
-                            nenv.Set(pop.Name, popVal);
-                        }
-                        break;
-                    case LetPop pop:
-                        nenv[pop.Name] = stack.Pop();
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-                inst++;
-            }
-            var re= stack.Pop();
-            return re;
+            return BytecodeCompiler.ExecuteByteCode(Body, runtime, nenv);
         }
 
         

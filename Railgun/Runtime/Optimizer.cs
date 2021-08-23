@@ -20,11 +20,11 @@ namespace Railgun.Runtime
                     {
                         case "quasiquote":
                             ex = ((Cell) c.Tail).Head;
-                            depth += 1;
+                            depth++;
                             continue;
                         case "unquote":
                             ex = ((Cell) c.Tail).Head;
-                            depth -= 1;
+                            depth--;
                             continue;
                     }
                 }
@@ -49,35 +49,6 @@ namespace Railgun.Runtime
                     LowerQuasiquotes(item, depth), new Cell(n, Nil.Value)));
             }
             return n;
-        }
-        
-        public static object CompileFunctions(object ex)
-        {
-            if (ex is not Cell c) return ex;
-            if (c.Head is not NameExpr h) return c.Map(CompileFunctions);
-            
-            switch (h.Name)
-            {
-                case "struct":
-                    return new StructType(c.Tail.Select(s => ((NameExpr) s).Name).ToList());
-                case "fn":
-                case "macro":
-                    var (fnArgs, fnBody) = (Cell) c.Tail;
-                    return new RailgunFn(
-                        ((Cell) fnArgs)
-                        .Select(n => ((NameExpr) n).Name)
-                        .ToArray(),
-                        fnBody, h.Name == "macro");
-                case "cfn":
-                    var (cfnArgs, cfnBody) = (Cell) c.Tail;
-                    var cfn = new CompiledFn(
-                        ((Cell) cfnArgs)
-                        .Select(n => ((NameExpr) n).Name)
-                        .ToArray(),
-                        cfnBody);
-                    return cfn;
-            }
-            return c.Map(CompileFunctions);
         }
     }
 }

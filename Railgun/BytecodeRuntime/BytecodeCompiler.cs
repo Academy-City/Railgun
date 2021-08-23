@@ -21,6 +21,59 @@ namespace Railgun.BytecodeRuntime
                 _ => throw new ArgumentOutOfRangeException(nameof(x), x, null)
             }));
         }
+
+        public static object ExecuteByteCode(List<IByteCode> bytecode, RailgunRuntime rt, IEnvironment nenv)
+        {
+            var stack = new Stack<object>();
+            var inst = 0;
+            while (inst < bytecode.Count)
+            {
+                switch (bytecode[inst])
+                {
+                    case Call call:
+                        Seq p = Nil.Value;
+                        for (var i = 0; i < call.Arity; i++)
+                        {
+                            p = new Cell(stack.Pop(), p);
+                        }
+
+                        var fv = stack.Pop();
+                        var fnToCall = (IRailgunClosure) fv;
+                        var res = fnToCall.Eval(rt, p);
+                        stack.Push(res);
+                        break;
+                    case Constant constant:
+                        stack.Push(constant.Value);
+                        break;
+                    case CreateClosure closure:
+                        stack.Push(closure.Fn.BuildClosure(nenv));
+                        break;
+                    case Jump jump:
+                        inst = jump.Location - 1;
+                        break;
+                    case JumpIfElse jumpIfElse:
+                        inst = ((bool) stack.Pop() ? jumpIfElse.IfTrue : jumpIfElse.IfFalse) - 1;
+                        break;
+                    case Load load:
+                        stack.Push(nenv[load.Name]);
+                        break;
+                    case Pop pop:
+                        var popVal = stack.Pop();
+                        if (pop.Name != "_")
+                        {
+                            nenv.Set(pop.Name, popVal);
+                        }
+                        break;
+                    case LetPop pop:
+                        nenv[pop.Name] = stack.Pop();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+                inst++;
+            }
+            return stack.Pop();
+        }
         
         public static void CompileExpr(List<IByteCode> byteCodes, object expr)
         {
@@ -38,6 +91,16 @@ namespace Railgun.BytecodeRuntime
             {
                 switch (name)
                 {
+                    case "fn":
+                    case "macro":
+                        var (fnArgs, fnBody) = (Cell) rest;
+                        var f = new CompiledFn(
+                            ((Seq) fnArgs)
+                            .Select(nx => ((NameExpr) nx).Name)
+                            .ToArray(),
+                            fnBody, name == "macro");
+                        byteCodes.Add(new CreateClosure(f));
+                        return;
                     case "if":
                         var condJump = new JumpIfElse();
                         var endJump = new Jump();
@@ -89,6 +152,12 @@ namespace Railgun.BytecodeRuntime
                         byteCodes.Add(new Constant(null));
                         return;
                 }
+            }
+
+            if (expr is Nil)
+            {
+                byteCodes.Add(new Constant(Nil.Value));
+                return;
             }
 
             if (expr is Seq call)

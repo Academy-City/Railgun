@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Railgun.BytecodeRuntime;
 using Railgun.Grammar;
 using Railgun.Grammar.Sweet;
 using Railgun.Types;
@@ -173,75 +174,11 @@ namespace Railgun.Runtime
             {
                 ex = ExpandMacros(ex, env);
                 // Console.WriteLine(RailgunLibrary.Repr(ex));
-                // compilation pass
-                ex = Optimizer.CompileFunctions(ex);
             }
 
-            switch (ex)
-            {
-                case IRailgunFn cm:
-                    return cm.BuildClosure(env);
-                case QuoteExpr q:
-                    return q.Data;
-                case NameExpr nex:
-                    return env[nex.Name];
-                case Cell seq: // function-like
-                    if (seq.Head is NameExpr n)
-                    {
-                        var rest = seq.Tail;
-                        switch (n.Name)
-                        {
-                            case "struct":
-                            case "fn":
-                            case "macro": 
-                                throw new RailgunRuntimeException(
-                                    $"Undesugared {n.Name} expression. Most likely a compiler bug.");
-                            case "let":
-                                var (letVars, _) = rest.TakeN(2);
-                                return env[((NameExpr) letVars[0]).Name] = Eval(letVars[1], env);
-                            case "set":
-                                var (setVars, _) = rest.TakeN(2);
-                                return env.Set(((NameExpr) setVars[0]).Name, Eval(setVars[1], env));
-                            case "if":
-                                var (ifVars, elseTail) = rest.TakeN(2);
-                                var ifCond = (bool) Eval(ifVars[0], env);
-                                if (ifCond) return Eval(ifVars[1], env);
-                                return elseTail is Cell ec ? Eval(ec.Head, env) : null;
-                            case "do":
-                                var nenv = new RailgunEnvironment(env);
-                                object doRet = null;
-                                foreach (var e in rest)
-                                {
-                                    doRet = Eval(e, nenv);
-                                }
-                                return doRet;
-                            case "while":
-                                var (wcond, wbody) = (Cell) rest;
-                                while ((bool) Eval(wcond, env))
-                                {
-                                    foreach (var x in wbody)
-                                    {
-                                        Eval(x, env);
-                                    }
-                                }
-                                return null;
-                        }
-                    }
-                    var fn = Eval(seq.Head, env);
-                    if (fn is not IRailgunClosure lfn)
-                    {
-                        throw new RailgunRuntimeException($"{RailgunLibrary.Repr(fn)} is not a function");
-                    }
-                    if (lfn.IsMacro)
-                    {
-                        throw new RailgunRuntimeException("Macros should not be evaluating this late.");
-                    }
-
-                    var fnArgs = seq.Tail.Map(x => Eval(x, env));
-                    return lfn.Eval(this, fnArgs);
-                default:
-                    return ex;
-            }
+            var bc = new List<IByteCode>();
+            BytecodeCompiler.CompileExpr(bc, ex);
+            return BytecodeCompiler.ExecuteByteCode(bc, this, env);
         }
         
         public void RunProgram(IEnumerable<object> program, IEnvironment env = null)
