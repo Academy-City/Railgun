@@ -11,20 +11,26 @@ namespace Railgun.Runtime
         /// </summary>
         public static object LowerQuasiquotes(object ex, int depth = 0)
         {
-            if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex).Lower();
-            if (s is Cell {Head: NameExpr name} c)
+            while (true)
             {
-                switch (name.Name)
+                if (ex is not Seq s) return depth == 0 ? ex : new QuoteExpr(ex).Lower();
+                if (s is Cell {Head: NameExpr name} c)
                 {
-                    case "quasiquote":
-                        return LowerQuasiquotes(((Cell) c.Tail).Head, depth + 1);
-                    case "unquote":
-                        return LowerQuasiquotes(((Cell) c.Tail).Head, depth - 1);
+                    switch (name.Name)
+                    {
+                        case "quasiquote":
+                            ex = ((Cell) c.Tail).Head;
+                            depth += 1;
+                            continue;
+                        case "unquote":
+                            ex = ((Cell) c.Tail).Head;
+                            depth -= 1;
+                            continue;
+                    }
                 }
-            }
 
-            return depth == 0 ? s :
-                QuasiquoteHelper(s, depth);
+                return depth == 0 ? s : QuasiquoteHelper(s, depth);
+            }
         }
 
         public static Seq QuasiquoteHelper(Seq s, int depth)

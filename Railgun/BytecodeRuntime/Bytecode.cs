@@ -26,7 +26,8 @@ namespace Railgun.BytecodeRuntime
     }
     
     public record Call(int Arity) : IByteCode;
-    
+    public record CreateClosure(CompiledFn Fn) : IByteCode;
+
     public class CompiledFn : IRailgunFn
     {
         public string[] Args { get; }
@@ -95,6 +96,9 @@ namespace Railgun.BytecodeRuntime
                         break;
                     case Constant constant:
                         stack.Push(constant.Value);
+                        break;
+                    case CreateClosure closure:
+                        stack.Push(closure.Fn.BuildClosure(env));
                         break;
                     case Jump jump:
                         inst = jump.Location - 1;
