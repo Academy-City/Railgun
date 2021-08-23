@@ -14,7 +14,7 @@ namespace Railgun.BytecodeRuntime
     public record Pop(string Name) : IByteCode;
     public record LetPop(string Name) : IByteCode;
 
-    public record Jump : IByteCode
+    public record Goto : IByteCode
     {
         public int Location { get; set; }
     }

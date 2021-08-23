@@ -103,6 +103,9 @@ namespace Railgun.Runtime
             });
 
             NewFn("macroexpand", x => ExpandMacros(x[0], Globals));
+            NewFn("decompile", xs => BytecodeCompiler.Decompile(
+                ((CompiledFn) ((Closure) xs[0]).Function).Body
+            ));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 
                 (cx, fn) => ((IRailgunClosure) fn).Eval(this, new Cell(cx, Nil.Value))));

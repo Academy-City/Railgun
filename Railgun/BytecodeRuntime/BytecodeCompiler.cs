@@ -8,18 +8,21 @@ namespace Railgun.BytecodeRuntime
 {
     public static class BytecodeCompiler
     {
-        public static string ShowBytecode(List<IByteCode> byteCodes)
+        public static string Decompile(List<IByteCode> byteCodes)
         {
-            return string.Join('\n', byteCodes.Select(x => x switch
+            var b = byteCodes.Select(x => x.GetType().Name + " " + x switch
             {
-                Call call => $"Call {call.Arity}",
-                Constant constant => $"Constant {RailgunLibrary.Repr(constant.Value)}",
-                Jump jump => $"Jump {jump.Location}",
-                JumpIfElse jumpIfElse => $"Jump {jumpIfElse.IfTrue} : {jumpIfElse.IfFalse}",
-                Load load => $"Load {load.Name}",
-                Pop pop => $"Pop {pop.Name}",
-                _ => throw new ArgumentOutOfRangeException(nameof(x), x, null)
-            }));
+                Call call => $"{call.Arity}",
+                Constant constant => $"{RailgunLibrary.Repr(constant.Value)}",
+                CreateClosure createClosure => "",
+                Goto jump => $"{jump.Location}",
+                JumpIfElse jumpIfElse => $"{jumpIfElse.IfTrue} : {jumpIfElse.IfFalse}",
+                LetPop letPop => $"{letPop.Name}",
+                Load load => $"{load.Name}",
+                Pop pop => $"{pop.Name}",
+                _ => ""
+            }).Select((x, i) => i.ToString().PadLeft(4) + " | " + x);
+            return string.Join('\n', b);
         }
 
         public static object ExecuteByteCode(List<IByteCode> bytecode, RailgunRuntime rt, IEnvironment nenv)
@@ -48,7 +51,7 @@ namespace Railgun.BytecodeRuntime
                     case CreateClosure closure:
                         stack.Push(closure.Fn.BuildClosure(nenv));
                         break;
-                    case Jump jump:
+                    case Goto jump:
                         inst = jump.Location - 1;
                         break;
                     case JumpIfElse jumpIfElse:
@@ -77,87 +80,83 @@ namespace Railgun.BytecodeRuntime
         
         public static void CompileExpr(List<IByteCode> byteCodes, object expr)
         {
-            if (expr is NameExpr n)
+            switch (expr)
             {
-                byteCodes.Add(new Load(n.Name));
-                return;
-            }
-            if (expr is QuoteExpr q)
-            {
-                byteCodes.Add(new Constant(q.Data));
-                return;
-            }
-            if (expr is Cell {Head: NameExpr { Name: var name }, Tail: var rest})
-            {
-                switch (name)
-                {
-                    case "fn":
-                    case "macro":
-                        var (fnArgs, fnBody) = (Cell) rest;
-                        var f = new CompiledFn(
-                            ((Seq) fnArgs)
-                            .Select(nx => ((NameExpr) nx).Name)
-                            .ToArray(),
-                            fnBody, name == "macro");
-                        byteCodes.Add(new CreateClosure(f));
-                        return;
-                    case "if":
-                        var condJump = new JumpIfElse();
-                        var endJump = new Jump();
-                        var (ifVars, elseTail) = rest.TakeN(2);
-                        CompileExpr(byteCodes, ifVars[0]); // push cond first
-                        byteCodes.Add(condJump);
+                case NameExpr n:
+                    byteCodes.Add(new Load(n.Name));
+                    return;
+                case QuoteExpr q:
+                    byteCodes.Add(new Constant(q.Data));
+                    return;
+                case Cell {Head: NameExpr { Name: var name }, Tail: var rest}:
+                    switch (name)
+                    {
+                        case "fn":
+                        case "macro":
+                            var (fnArgs, fnBody) = (Cell) rest;
+                            var f = new CompiledFn(
+                                ((Seq) fnArgs)
+                                .Select(nx => ((NameExpr) nx).Name)
+                                .ToArray(),
+                                fnBody, name == "macro");
+                            byteCodes.Add(new CreateClosure(f));
+                            return;
+                        case "if":
+                            var condJump = new JumpIfElse();
+                            var endJump = new Goto();
+                            var (ifVars, elseTail) = rest.TakeN(2);
+                            CompileExpr(byteCodes, ifVars[0]); // push cond first
+                            byteCodes.Add(condJump);
 
-                        condJump.IfTrue = byteCodes.Count;
-                        CompileExpr(byteCodes, ifVars[1]);
-                        byteCodes.Add(endJump);
-                        condJump.IfFalse = byteCodes.Count;
-                        if (elseTail is Cell ec)
-                        {
-                            CompileExpr(byteCodes, ec.Head);
-                        }
-                        else
-                        {
+                            condJump.IfTrue = byteCodes.Count;
+                            CompileExpr(byteCodes, ifVars[1]);
+                            byteCodes.Add(endJump);
+                            condJump.IfFalse = byteCodes.Count;
+                            if (elseTail is Cell ec)
+                            {
+                                CompileExpr(byteCodes, ec.Head);
+                            }
+                            else
+                            {
+                                byteCodes.Add(new Constant(null));
+                            }
+                            endJump.Location = byteCodes.Count;
+                            return;
+                        case "let":
+                            var (letVars, _) = rest.TakeN(2);
+                            CompileExpr(byteCodes, letVars[1]);
+                            byteCodes.Add(new LetPop(((NameExpr) letVars[0]).Name));
                             byteCodes.Add(new Constant(null));
-                        }
-                        endJump.Location = byteCodes.Count;
-                        return;
-                    case "let":
-                        var (letVars, _) = rest.TakeN(2);
-                        CompileExpr(byteCodes, letVars[1]);
-                        byteCodes.Add(new LetPop(((NameExpr) letVars[0]).Name));
-                        byteCodes.Add(new Constant(null));
-                        return;
-                    case "set":
-                        var (setVars, _) = rest.TakeN(2);
-                        CompileExpr(byteCodes, setVars[1]);
-                        byteCodes.Add(new Pop(((NameExpr) setVars[0]).Name));
-                        byteCodes.Add(new Constant(null));
-                        return;
-                    case "while":
-                        var (wcond, wbody) = (Cell) rest;
-                        var wJump = new JumpIfElse();
-                        var wEnd = new Jump();
-                        wEnd.Location = byteCodes.Count;
-                        CompileExpr(byteCodes, wcond); // push cond first
-                        byteCodes.Add(wJump);
-                        wJump.IfTrue = byteCodes.Count;
-                        foreach (var wexpr in wbody)
-                        {
-                            CompileExpr(byteCodes, wexpr);
-                            byteCodes.Add(new Pop("_"));
-                        }
-                        byteCodes.Add(wEnd);
-                        wJump.IfFalse = byteCodes.Count;
-                        byteCodes.Add(new Constant(null));
-                        return;
-                }
-            }
+                            return;
+                        case "set":
+                            var (setVars, _) = rest.TakeN(2);
+                            CompileExpr(byteCodes, setVars[1]);
+                            byteCodes.Add(new Pop(((NameExpr) setVars[0]).Name));
+                            byteCodes.Add(new Constant(null));
+                            return;
+                        case "while":
+                            var (wcond, wbody) = (Cell) rest;
+                            var wJump = new JumpIfElse();
+                            var wEnd = new Goto();
+                            wEnd.Location = byteCodes.Count;
+                            CompileExpr(byteCodes, wcond); // push cond first
+                            byteCodes.Add(wJump);
+                            wJump.IfTrue = byteCodes.Count;
+                            foreach (var wexpr in wbody)
+                            {
+                                CompileExpr(byteCodes, wexpr);
+                                byteCodes.Add(new Pop("_"));
+                            }
+                            byteCodes.Add(wEnd);
+                            wJump.IfFalse = byteCodes.Count;
+                            byteCodes.Add(new Constant(null));
+                            return;
+                    }
 
-            if (expr is Nil)
-            {
-                byteCodes.Add(new Constant(Nil.Value));
-                return;
+                    break;
+                case Nil:
+                    byteCodes.Add(new Constant(Nil.Value));
+                    return;
             }
 
             if (expr is Seq call)
