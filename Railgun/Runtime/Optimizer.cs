@@ -1,6 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
+using Railgun.BytecodeRuntime;
 using Railgun.Types;
 
 namespace Railgun.Runtime
@@ -63,6 +62,14 @@ namespace Railgun.Runtime
                         .Select(n => ((NameExpr) n).Name)
                         .ToArray(),
                         fnBody, h.Name == "macro");
+                case "cfn":
+                    var (cfnArgs, cfnBody) = (Cell) c.Tail;
+                    var cfn = new CompiledFn(
+                        ((Cell) cfnArgs)
+                        .Select(n => ((NameExpr) n).Name)
+                        .ToArray(),
+                        cfnBody);
+                    return cfn;
             }
             return c.Map(CompileFunctions);
         }

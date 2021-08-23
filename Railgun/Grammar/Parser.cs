@@ -82,8 +82,10 @@ namespace Railgun.Grammar
                     var nv = Next().Value;
                     if (nv.Contains("."))
                     {
-                        return new Cell(new NameExpr("."), Seq.Create(nv.Split('.')
-                            .Select(x => new NameExpr(x))));
+                        var s = nv.Split('.');
+                        var o = new List<object> { new NameExpr("."), new NameExpr(s.First()) };
+                        o.AddRange(s.Skip(1));
+                        return Seq.Create(o);
                     }
                     return new NameExpr(nv);
                 case TokenType.Numeric:
