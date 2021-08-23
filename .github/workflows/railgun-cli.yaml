@@ -47,9 +47,27 @@ jobs:
       - name: Publish the application
         run: dotnet publish Railgun -c Release
 
-      # Upload the MSIX package: https://github.com/marketplace/actions/upload-artifact
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+      - uses: papeloto/action-zip@v1
+        name: Zip files up
         with:
-          name: Railgun-win-x64
-          path: Railgun/bin/Release/net5.0/win-x64/publish
+          files: Railgun/bin/Release/net5.0/win-x64/publish/
+          dest: ./railgun-win-x64.zip
+          
+      - name: Set tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -f -a nightly -m "Nightly build"
+          git push origin -f --follow-tags nightly
+
+      - name: Deploy release
+        uses: WebFreak001/deploy-nightly@v1.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: https://uploads.github.com/repos/Academy-City/Railgun/releases/48288539/assets{?name,label}
+          release_id: 48288539 # same as above (id can just be taken out the upload_url, it's used to find old releases)
+          asset_path: ./railgun-win-x64.zip # path to archive to upload
+          asset_name: railgun-win-x64-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+          asset_content_type: application/zip # required by GitHub API
+          max_releases: 1

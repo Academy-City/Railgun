@@ -88,7 +88,12 @@ namespace Railgun.Grammar
                     }
                     return new NameExpr(nv);
                 case TokenType.Numeric:
-                    return int.Parse(Next().Value);
+                    var numeric = Next().Value;
+                    if (numeric.Contains('.'))
+                    {
+                        return double.Parse(numeric);
+                    }
+                    return int.Parse(numeric);
                 case TokenType.String:
                     return Next().Value;
                 default:

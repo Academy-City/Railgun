@@ -44,6 +44,7 @@ namespace Railgun.Runtime
             Globals["Seq"] = typeof(Seq);
             Globals["Int"] = typeof(int);
             Globals["Float"] = typeof(float);
+            Globals["Double"] = typeof(float);
             Globals["String"] = typeof(string);
             Globals["Bool"] = typeof(bool);
 
