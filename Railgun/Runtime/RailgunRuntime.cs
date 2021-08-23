@@ -68,7 +68,7 @@ namespace Railgun.Runtime
             {
                 return Seq.Create(xs.SelectMany(x => (Seq) x));
             });
-            
+
             NewFn("repr", x => RailgunLibrary.Repr(x[0]));
             NewFn("print", x =>
             {
@@ -111,6 +111,15 @@ namespace Railgun.Runtime
                 var seed = xs[0];
                 return xs.Skip(1).Aggregate(seed, (current, x) =>
                     ((IDottable) current).DotGet((string) x) );
+            });
+            
+            NewFn("use", xs =>
+            {
+                var uenv = new RailgunEnvironment(Globals);
+                var path = Path.Join(_workingDirectory, (string) xs[0]);
+                var uProgram = ProgramLoader.LoadProgram(path);
+                RunProgram(uProgram, uenv);
+                return uenv;
             });
             
             NewMacro("quasiquote", x => Optimizer.LowerQuasiquotes(x[0], 1));
@@ -216,13 +225,6 @@ namespace Railgun.Runtime
                                     }
                                 }
                                 return null;
-                            case "use":
-                                var (uArg, _) = (Cell) rest;
-                                var uenv = new RailgunEnvironment(env);
-                                var path = Path.Join(_workingDirectory, (string) uArg);
-                                var uProgram = ProgramLoader.LoadProgram(path);
-                                RunProgram(uProgram, uenv);
-                                return uenv;
                         }
                     }
                     var fn = Eval(seq.Head, env);
