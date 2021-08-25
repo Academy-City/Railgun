@@ -16,7 +16,7 @@ namespace Railgun.BytecodeRuntime
                 Constant constant => $"{RailgunLibrary.Repr(constant.Value)}",
                 CreateClosure createClosure => "",
                 Goto jump => $"{jump.Location}",
-                JumpIfElse jumpIfElse => $"{jumpIfElse.IfTrue} : {jumpIfElse.IfFalse}",
+                Branch jumpIfElse => $"{jumpIfElse.IfTrue} : {jumpIfElse.IfFalse}",
                 LetPop letPop => $"{letPop.Name}",
                 Load load => $"{load.Name}",
                 Pop pop => $"{pop.Name}",
@@ -54,7 +54,7 @@ namespace Railgun.BytecodeRuntime
                     case Goto jump:
                         inst = jump.Location - 1;
                         break;
-                    case JumpIfElse jumpIfElse:
+                    case Branch jumpIfElse:
                         inst = ((bool) stack.Pop() ? jumpIfElse.IfTrue : jumpIfElse.IfFalse) - 1;
                         break;
                     case Load load:
@@ -94,7 +94,7 @@ namespace Railgun.BytecodeRuntime
                         case "fn":
                         case "macro":
                             var (fnArgs, fnBody) = (Cell) rest;
-                            var f = new CompiledFn(
+                            var f = new RailgunFn(
                                 ((Seq) fnArgs)
                                 .Select(nx => ((NameExpr) nx).Name)
                                 .ToArray(),
@@ -102,7 +102,7 @@ namespace Railgun.BytecodeRuntime
                             byteCodes.Add(new CreateClosure(f));
                             return;
                         case "if":
-                            var condJump = new JumpIfElse();
+                            var condJump = new Branch();
                             var endJump = new Goto();
                             var (ifVars, elseTail) = rest.TakeN(2);
                             CompileExpr(byteCodes, ifVars[0]); // push cond first
@@ -136,7 +136,7 @@ namespace Railgun.BytecodeRuntime
                             return;
                         case "while":
                             var (wcond, wbody) = (Cell) rest;
-                            var wJump = new JumpIfElse();
+                            var wJump = new Branch();
                             var wEnd = new Goto();
                             wEnd.Location = byteCodes.Count;
                             CompileExpr(byteCodes, wcond); // push cond first

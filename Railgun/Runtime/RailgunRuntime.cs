@@ -44,7 +44,7 @@ namespace Railgun.Runtime
             Globals["Seq"] = typeof(Seq);
             Globals["Int"] = typeof(int);
             Globals["Float"] = typeof(float);
-            Globals["Double"] = typeof(float);
+            Globals["Double"] = typeof(double);
             Globals["String"] = typeof(string);
             Globals["Bool"] = typeof(bool);
 
@@ -57,6 +57,7 @@ namespace Railgun.Runtime
             NewFn("=", x => x[0].Equals(x[1]));
             NewFn("and", x => (bool) x[0] && (bool) x[1]);
             NewFn("or", x => (bool) x[0] || (bool) x[1]);
+            NewFn("not", x => !(bool) x[0]);
 
             NewFn("+", x => (dynamic) x[0] + (dynamic) x[1]);
             NewFn("-", x => (dynamic) x[0] - (dynamic) x[1]);
@@ -105,7 +106,7 @@ namespace Railgun.Runtime
 
             NewFn("macroexpand", x => ExpandMacros(x[0], Globals));
             NewFn("decompile", xs => BytecodeCompiler.Decompile(
-                ((CompiledFn) ((Closure) xs[0]).Function).Body
+                ((RailgunFn) ((Closure) xs[0]).Function).Body
             ));
             NewFn("str/fmt", x => string.Format((string) x[0], x.Skip(1).ToArray()));
             NewFn("|>", x => x.Skip(1).Aggregate(x[0], 

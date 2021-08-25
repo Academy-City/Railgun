@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Railgun.BytecodeRuntime;
 using Railgun.Types;
 
 namespace Railgun.Runtime
@@ -9,19 +10,13 @@ namespace Railgun.Runtime
         public object Eval(RailgunRuntime runtime, Seq args);
         public bool IsMacro { get; }
     }
-    
-    public interface IRailgunFn
-    {
-        object Execute(IEnvironment env, RailgunRuntime runtime, Seq args);
-        bool IsMacro { get; }
-    }
 
     public class Closure : IRailgunClosure
     {
         private readonly IEnvironment _env;
-        public IRailgunFn Function { get; }
+        public RailgunFn Function { get; }
 
-        public Closure(IEnvironment env, IRailgunFn function)
+        public Closure(IEnvironment env, RailgunFn function)
         {
             _env = env;
             Function = function;

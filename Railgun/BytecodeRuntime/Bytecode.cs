@@ -18,23 +18,26 @@ namespace Railgun.BytecodeRuntime
         public int Location { get; set; }
     }
 
-    public class JumpIfElse : IByteCode
+    public class Branch : IByteCode
     {
         public int IfTrue { get; set; }
         public int IfFalse { get; set; }
     }
     
     public record Call(int Arity) : IByteCode;
-    public record CreateClosure(CompiledFn Fn) : IByteCode;
-
-    public class CompiledFn : IRailgunFn
+    public record CreateClosure(RailgunFn Fn) : IByteCode;
+    
+    // not bytecode, but similar
+    public record StructDefinition(List<string> Members) : IByteCode;
+    
+    public class RailgunFn
     {
         public string[] Args { get; }
         public string IsVariadic { get; } = "";
         public List<IByteCode> Body { get; }
         public bool IsMacro { get; }
 
-        public CompiledFn(string[] args, Seq body, bool isMacro = false)
+        public RailgunFn(string[] args, Seq body, bool isMacro = false)
         {
             // TODO: Better checks
             Args = args;
@@ -66,7 +69,7 @@ namespace Railgun.BytecodeRuntime
 
             if (IsVariadic != "")
             {
-                env[IsVariadic] = Seq.Create(args);
+                env[IsVariadic] = args;
             }
         }
 
