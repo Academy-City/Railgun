@@ -17,8 +17,9 @@ namespace Railgun
             CoconaApp.Run<Program>(args);
         }
 
-        [Command("repl")]
-        public void Repl()
+        [PrimaryCommand]
+        [Command(Description = "Starts the Railgun Interactive Environment")]
+        public void Interactive()
         {
             var version = Assembly.GetExecutingAssembly().
                 GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -67,9 +68,12 @@ namespace Railgun
             return new Parser(program).ParseProgram();
         }
         
-        [Command("run")]
+        [Command("run", Description = "Runs the Railgun project or script.")]
         public void Run(string entry = "./main")
         {
+            // var sw = new Stopwatch();
+            // sw.Start();
+            
             var workingDir = Directory.GetCurrentDirectory();
             var runtime = new RailgunRuntime(workingDir);
 
@@ -77,6 +81,9 @@ namespace Railgun
             var program = ProgramLoader.LoadProgram(entry);
             
             runtime.RunProgram(program);
+            
+            // sw.Stop();
+            // Console.WriteLine(sw.Elapsed);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+#
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Railgun", "Railgun\Railgun.csproj", "{59272F94-3AA8-4AAD-B17F-EB9CDC601F40}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Railgun.Tests", "Railgun.Tests\Railgun.Tests.csproj", "{787B11E9-869C-4DE0-ADE4-880E6C614195}"

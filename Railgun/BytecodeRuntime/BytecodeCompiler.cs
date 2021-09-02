@@ -8,15 +8,14 @@ namespace Railgun.BytecodeRuntime
 {
     public static class BytecodeCompiler
     {
-        public static string Decompile(List<IByteCode> byteCodes)
+        public static string Decompile(IEnumerable<IByteCode> byteCodes)
         {
             var b = byteCodes.Select(x => x.GetType().Name + " " + x switch
             {
                 Call call => $"{call.Arity}",
                 Constant constant => $"{RailgunLibrary.Repr(constant.Value)}",
-                CreateClosure createClosure => "",
                 Goto jump => $"{jump.Location}",
-                Branch jumpIfElse => $"{jumpIfElse.IfTrue} : {jumpIfElse.IfFalse}",
+                GotoElse gotoElse => $"{gotoElse.Location}",
                 LetPop letPop => $"{letPop.Name}",
                 Load load => $"{load.Name}",
                 Pop pop => $"{pop.Name}",
@@ -28,10 +27,10 @@ namespace Railgun.BytecodeRuntime
         public static object ExecuteByteCode(List<IByteCode> bytecode, RailgunRuntime rt, IEnvironment nenv)
         {
             var stack = new Stack<object>();
-            var inst = 0;
-            while (inst < bytecode.Count)
+            var programCounter = 0;
+            while (programCounter < bytecode.Count)
             {
-                switch (bytecode[inst])
+                switch (bytecode[programCounter])
                 {
                     case Call call:
                         Seq p = Nil.Value;
@@ -41,8 +40,11 @@ namespace Railgun.BytecodeRuntime
                         }
 
                         var fv = stack.Pop();
-                        var fnToCall = (IRailgunClosure) fv;
-                        var res = fnToCall.Eval(rt, p);
+                        if (fv is not IRailgunClosure fn)
+                        {
+                            throw new RailgunRuntimeException($"{fv.GetType()} is not a function");
+                        }
+                        var res = fn.Eval(rt, p);
                         stack.Push(res);
                         break;
                     case Constant constant:
@@ -52,20 +54,22 @@ namespace Railgun.BytecodeRuntime
                         stack.Push(closure.Fn.BuildClosure(nenv));
                         break;
                     case Goto jump:
-                        inst = jump.Location - 1;
+                        programCounter = jump.Location - 1;
                         break;
-                    case Branch jumpIfElse:
-                        inst = ((bool) stack.Pop() ? jumpIfElse.IfTrue : jumpIfElse.IfFalse) - 1;
+                    case GotoElse gotoElse:
+                        if (!(bool) stack.Pop())
+                        {
+                            programCounter = gotoElse.Location - 1;
+                        }
                         break;
                     case Load load:
                         stack.Push(nenv[load.Name]);
                         break;
+                    case Discard:
+                        stack.Pop();
+                        break;
                     case Pop pop:
-                        var popVal = stack.Pop();
-                        if (pop.Name != "_")
-                        {
-                            nenv.Set(pop.Name, popVal);
-                        }
+                        nenv.Set(pop.Name, stack.Pop());
                         break;
                     case LetPop pop:
                         nenv[pop.Name] = stack.Pop();
@@ -73,7 +77,7 @@ namespace Railgun.BytecodeRuntime
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
-                inst++;
+                programCounter++;
             }
             return stack.Pop();
         }
@@ -102,16 +106,14 @@ namespace Railgun.BytecodeRuntime
                             byteCodes.Add(new CreateClosure(f));
                             return;
                         case "if":
-                            var condJump = new Branch();
+                            var condJump = new GotoElse();
                             var endJump = new Goto();
                             var (ifVars, elseTail) = rest.TakeN(2);
                             CompileExpr(byteCodes, ifVars[0]); // push cond first
                             byteCodes.Add(condJump);
-
-                            condJump.IfTrue = byteCodes.Count;
                             CompileExpr(byteCodes, ifVars[1]);
                             byteCodes.Add(endJump);
-                            condJump.IfFalse = byteCodes.Count;
+                            condJump.Location = byteCodes.Count;
                             if (elseTail is Cell ec)
                             {
                                 CompileExpr(byteCodes, ec.Head);
@@ -136,19 +138,18 @@ namespace Railgun.BytecodeRuntime
                             return;
                         case "while":
                             var (wcond, wbody) = (Cell) rest;
-                            var wJump = new Branch();
+                            var wJump = new GotoElse();
                             var wEnd = new Goto();
                             wEnd.Location = byteCodes.Count;
                             CompileExpr(byteCodes, wcond); // push cond first
                             byteCodes.Add(wJump);
-                            wJump.IfTrue = byteCodes.Count;
                             foreach (var wexpr in wbody)
                             {
                                 CompileExpr(byteCodes, wexpr);
-                                byteCodes.Add(new Pop("_"));
+                                byteCodes.Add(new Discard());
                             }
                             byteCodes.Add(wEnd);
-                            wJump.IfFalse = byteCodes.Count;
+                            wJump.Location = byteCodes.Count;
                             byteCodes.Add(new Constant(null));
                             return;
                     }
@@ -179,7 +180,7 @@ namespace Railgun.BytecodeRuntime
             foreach (var stmt in body)
             {
                 CompileExpr(l, stmt);
-                l.Add(new Pop("_"));
+                l.Add(new Discard());
             }
             l.RemoveAt(l.Count - 1);
             return l;

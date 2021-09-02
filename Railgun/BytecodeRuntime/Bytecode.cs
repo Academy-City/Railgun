@@ -11,19 +11,19 @@ namespace Railgun.BytecodeRuntime
     public record Constant(object Value) : IByteCode;
 
     public record Pop(string Name) : IByteCode;
+    public record Discard : IByteCode;
     public record LetPop(string Name) : IByteCode;
 
     public record Goto : IByteCode
     {
         public int Location { get; set; }
     }
-
-    public class Branch : IByteCode
-    {
-        public int IfTrue { get; set; }
-        public int IfFalse { get; set; }
-    }
     
+    public record GotoElse : IByteCode
+    {
+        public int Location { get; set; }
+    }
+
     public record Call(int Arity) : IByteCode;
     public record CreateClosure(RailgunFn Fn) : IByteCode;
     
@@ -79,7 +79,6 @@ namespace Railgun.BytecodeRuntime
             SetupArgs(args, nenv);
             return BytecodeCompiler.ExecuteByteCode(Body, runtime, nenv);
         }
-
         
         public Closure BuildClosure(IEnvironment env)
         {
