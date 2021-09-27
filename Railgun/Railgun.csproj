@@ -20,4 +20,9 @@
     <ItemGroup>
       <EmbeddedResource Include="core\core.rgx" />
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Railgun.Api\Railgun.Api.csproj" />
+      <ProjectReference Include="..\Railgun.AspNetCore\Railgun.AspNetCore.csproj" />
+    </ItemGroup>
 </Project>

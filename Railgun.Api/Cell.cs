@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Railgun.Types
+namespace Railgun.Api
 {
     public abstract class Seq : IEnumerable<object>
     {

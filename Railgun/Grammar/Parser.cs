@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Railgun.Api;
 using Railgun.Types;
 
 namespace Railgun.Grammar

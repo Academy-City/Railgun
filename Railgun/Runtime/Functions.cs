@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Linq;
+using Railgun.Api;
 using Railgun.BytecodeRuntime;
 using Railgun.Types;
 
 namespace Railgun.Runtime
 {
-    public interface IRailgunClosure
-    {
-        public object Eval(RailgunRuntime runtime, Seq args);
-        public bool IsMacro { get; }
-    }
-
     public class Closure : IRailgunClosure
     {
         private readonly IEnvironment _env;
@@ -22,9 +17,9 @@ namespace Railgun.Runtime
             Function = function;
         }
 
-        public object Eval(RailgunRuntime runtime, Seq args)
+        public object Eval(Seq args)
         {
-            return Function.Execute(_env, runtime, args);
+            return Function.Execute(_env, args);
         }
 
         public bool IsMacro => Function.IsMacro;
@@ -41,7 +36,7 @@ namespace Railgun.Runtime
             IsMacro = isMacro;
         }
 
-        public object Eval(RailgunRuntime runtime, Seq args)
+        public object Eval(Seq args)
         {
             return Body(args.ToArray());
         }

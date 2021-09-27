@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Railgun.Api;
 using Railgun.BytecodeRuntime;
 using Railgun.Types;
 

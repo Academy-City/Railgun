@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Railgun.Api;
 using Railgun.Runtime;
 using Railgun.Types;
 
@@ -73,11 +74,11 @@ namespace Railgun.BytecodeRuntime
             }
         }
 
-        public object Execute(IEnvironment env, RailgunRuntime runtime, Seq args)
+        public object Execute(IEnvironment env, Seq args)
         {
             var nenv = new RailgunEnvironment(env);
             SetupArgs(args, nenv);
-            return BytecodeCompiler.ExecuteByteCode(Body, runtime, nenv);
+            return BytecodeCompiler.ExecuteByteCode(Body, nenv);
         }
         
         public Closure BuildClosure(IEnvironment env)

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Railgun.Api;
 using Railgun.Runtime;
 
 namespace Railgun.Types
@@ -18,7 +19,7 @@ namespace Railgun.Types
             MembersToOffset = dict;
         }
 
-        public object Eval(RailgunRuntime runtime, Seq args)
+        public object Eval(Seq args)
         {
             return new RailgunRecord(this, args.ToArray());
         }

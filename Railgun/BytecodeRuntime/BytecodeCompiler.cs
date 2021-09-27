@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Railgun.Api;
 using Railgun.Runtime;
 using Railgun.Types;
 
@@ -24,7 +25,7 @@ namespace Railgun.BytecodeRuntime
             return string.Join('\n', b);
         }
 
-        public static object ExecuteByteCode(List<IByteCode> bytecode, RailgunRuntime rt, IEnvironment nenv)
+        public static object ExecuteByteCode(List<IByteCode> bytecode, IEnvironment nenv)
         {
             var stack = new Stack<object>();
             var programCounter = 0;
@@ -44,7 +45,7 @@ namespace Railgun.BytecodeRuntime
                         {
                             throw new RailgunRuntimeException($"{fv.GetType()} is not a function");
                         }
-                        var res = fn.Eval(rt, p);
+                        var res = fn.Eval(p);
                         stack.Push(res);
                         break;
                     case Constant constant:
