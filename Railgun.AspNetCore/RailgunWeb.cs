@@ -1,9 +1,12 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Railgun.Api;
 
 namespace Railgun.AspNetCore
 {
@@ -15,12 +18,11 @@ namespace Railgun.AspNetCore
     
     public class RailgunWeb
     {
-        public void RouteGet(string pattern, RequestDelegate fn)
+        public void RouteGet(string pattern, IRailgunClosure fn)
         {
-            
         }
         
-        public void Start(string name = "Cactus")
+        public void Start(IRailgunClosure fn)
         {
             var h = Host.CreateDefaultBuilder()
                 .ConfigureLogging(l =>
@@ -40,9 +42,11 @@ namespace Railgun.AspNetCore
                         app.UseRouting();
                         app.UseEndpoints(endpoints =>
                         {
-                            endpoints.MapGet("/", async context =>
+                            endpoints.MapGet("/{name}", async context =>
                             {
-                                await context.Response.WriteAsync($"Hello, {name}!");
+                                Console.WriteLine(context.GetRouteData().Values["name"]);
+                                var res = (string) fn.Eval(Seq.Create(new[] {context}));
+                                await context.Response.WriteAsync(res);
                             });
                         });
                     });

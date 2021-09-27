@@ -3,4 +3,7 @@
         <OutputType>Library</OutputType>
         <TargetFramework>net5.0</TargetFramework>
     </PropertyGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\Railgun.Api\Railgun.Api.csproj" />
+    </ItemGroup>
 </Project>

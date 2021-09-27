@@ -145,6 +145,11 @@ namespace Railgun.Runtime
                 var mn = xs[0].GetType().GetMethod((string) xs[1]);
                 return mn!.Invoke(xs[0], xs.Skip(2).ToArray());
             });
+            NewFn("invoke-static-method", xs =>
+            {
+                var mn = ((Type) xs[0]).GetMethod((string) xs[1]);
+                return mn!.Invoke(null, xs.Skip(2).ToArray());
+            });
             
             RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
         }
