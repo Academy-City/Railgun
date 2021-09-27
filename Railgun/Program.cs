@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -70,7 +70,7 @@ namespace Railgun
         }
         
         [Command("run", Description = "Runs the Railgun project or script.")]
-        public void Run(string entry = "./main")
+        public void Run([Argument]string entry = "./main")
         {
             // var sw = new Stopwatch();
             // sw.Start();
