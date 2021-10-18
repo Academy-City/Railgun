@@ -5,29 +5,29 @@
 The main repository for Railgun, a modern take on Lisp with a cleaner syntax and eventually, a homoiconic type system. Railgun is a Lisp with access to the full power of the Lisp ecosystem.
 
 ## Expressions
-```ls
-# comments are written with a '#'
-42 # integers
-"bob" # strings
-(print "hello, world") # a sequence, with the callable as the first, and arguments as rest
+```rg
+; comments are written with a ';'
+42 ; integers
+"bob" ; strings
+(print "hello, world") ; a sequence, with the callable as the first, and arguments as rest
 ```
 
 Railgun supports sweet-expressions, provided that you use the .rgx or .⚡ file extension. This allows the outermost parentheses to be inferred.
 
 For example, a factorial without sweet-expressions:
 
-```ls
+```rg
 (let-fn factorial (n)
-    # A simple recursive factorial function.
+    ; A simple recursive factorial function.
     (if (<= n 1)
         1
         (* n (factorial (- n 1)))))
 ```
 
 can be written as this, with sweet-expressions enabled:
-```ls
+```rg
 let-fn factorial (n)
-    # A simple recursive factorial function.
+    ; A simple recursive factorial function.
     if (<= n 1)
         1
         * n (factorial (- n 1))
@@ -35,13 +35,13 @@ let-fn factorial (n)
 
 ## Examples
 
-```ls
+```rg
 # a struct defining a person.
 def struct Person
     name
     age
 
-# List of students.
+; List of students.
 let students [
     (Person "Misaka Mikoto" 14)
     (Person "Shirai Kuroko" 13)
