@@ -63,6 +63,8 @@ namespace Railgun.Grammar
                     return ParseSequence();
                 case TokenType.LBracket:
                     return ParseList();
+                case TokenType.LBrace:
+                    return ParseDict();
                 case TokenType.RParen:
                 case TokenType.RBracket:
                     throw new ParseException($"Unexpected \"{Current.Value}\"", Current.Position);
@@ -78,6 +80,8 @@ namespace Railgun.Grammar
                 case TokenType.Unquote:
                     Pos++;
                     return Seq.Create(new[] { new NameExpr("unquote"), ParseExpr() });
+                case TokenType.Keyword:
+                    return new Keyword(Next().Value);
                 case TokenType.NameSymbol:
                     var nv = Next().Value;
                     if (nv.Contains("."))
@@ -139,6 +143,15 @@ namespace Railgun.Grammar
             {
                 new NameExpr("list"),
             }.Concat(ParseCollection(TokenType.LBracket, TokenType.RBracket));
+            return Seq.Create(w);
+        }
+        
+        public Seq ParseDict()
+        {
+            var w = new[]
+            {
+                new NameExpr("dict"),
+            }.Concat(ParseCollection(TokenType.LBrace, TokenType.RBrace));
             return Seq.Create(w);
         }
 

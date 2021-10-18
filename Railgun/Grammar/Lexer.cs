@@ -15,10 +15,13 @@ namespace Railgun.Grammar
         RParen,
         LBracket,
         RBracket,
+        LBrace,
+        RBrace,
         
         NameSymbol,
         Numeric,
         String,
+        Keyword,
         
         Quote,
         Quasiquote,
@@ -61,6 +64,28 @@ namespace Railgun.Grammar
             var c = Current;
             Pos++;
             return c;
+        }
+
+        protected bool LexSimpleTokens(List<Token> list)
+        {
+            if (!"()[]{}'`,".Contains(Current)) return false;
+            
+            list.Add(Current switch
+            {
+                '(' => new Token(TokenType.LParen, "(", Pos),
+                ')' => new Token(TokenType.RParen, ")", Pos),
+                '[' => new Token(TokenType.LBracket, "[", Pos),
+                ']' => new Token(TokenType.RBracket, "]", Pos),
+                '{' => new Token(TokenType.LBrace, "{", Pos),
+                '}' => new Token(TokenType.RBrace, "}", Pos),
+                '\'' => new Token(TokenType.Quote, "\\", Pos),
+                '`' => new Token(TokenType.Quasiquote, "`", Pos), 
+                ',' => new Token(TokenType.Unquote, ",", Pos),
+                        
+                _ => throw new ParseException("Unexpected token", Pos)
+            });
+            Pos++;
+            return true;
         }
         
         protected void MustBe(char c)
@@ -170,6 +195,12 @@ namespace Railgun.Grammar
                 {
                     list.Add(Numeric());
                 }
+                else if (Current == ':')
+                {
+                    Pos++;
+                    var (_, value, position) = Name();
+                    list.Add(new Token(TokenType.Keyword, value, position-1));
+                }
                 else if (IsSymbol(Current))
                 {
                     list.Add(Name());
@@ -187,22 +218,7 @@ namespace Railgun.Grammar
                         Pos++;
                     }
                 }
-                else if ("()[]'`,".Contains(Current))
-                {
-                    list.Add(Current switch
-                    {
-                        '(' => new Token(TokenType.LParen, "(", Pos),
-                        ')' => new Token(TokenType.RParen, ")", Pos),
-                        '[' => new Token(TokenType.LBracket, "[", Pos),
-                        ']' => new Token(TokenType.RBracket, "]", Pos),
-                        '\'' => new Token(TokenType.Quote, "\\", Pos),
-                        '`' => new Token(TokenType.Quasiquote, "`", Pos), 
-                        ',' => new Token(TokenType.Unquote, ",", Pos),
-                        
-                        _ => throw new ParseException("Unexpected token", Pos)
-                    });
-                    Pos++;
-                }
+                else if (LexSimpleTokens(list)) { }
                 else
                 {
                     throw new ParseException("Unexpected token", Pos);

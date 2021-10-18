@@ -91,8 +91,20 @@ namespace Railgun.Runtime
                 Environment.Exit(0);
                 return null;
             });
-            
             NewFn("list", x => x.ToList());
+            NewFn("dict", xs =>
+            {
+                if (xs.Length % 2 != 0)
+                {
+                    throw new RailgunRuntimeException("dict must have even number of values");
+                }
+                var dict = new Dictionary<object, object>();
+                for (var i = 0; i < xs.Length; i+=2)
+                {
+                    dict[xs[i]] = xs[i + 1];
+                }
+                return dict;
+            });
             NewFn("seq", Seq.Create);
             NewFn("foreach-fn", x =>
             {

@@ -97,6 +97,12 @@ namespace Railgun.Grammar.Sweet
                 {
                     list.Add(Numeric());
                 }
+                else if (Current == ':')
+                {
+                    Pos++;
+                    var (_, value, position) = Name();
+                    list.Add(new Token(TokenType.Keyword, value, position-1));
+                }
                 else if (IsSymbol(Current))
                 {
                     list.Add(Name());
@@ -114,22 +120,7 @@ namespace Railgun.Grammar.Sweet
                         Pos++;
                     }
                 }
-                else if ("()[]'`,".Contains(Current))
-                {
-                    list.Add(Current switch
-                    {
-                        '(' => new Token(TokenType.LParen, "(", Pos),
-                        ')' => new Token(TokenType.RParen, ")", Pos),
-                        '[' => new Token(TokenType.LBracket, "[", Pos),
-                        ']' => new Token(TokenType.RBracket, "]", Pos),
-                        '\'' => new Token(TokenType.Quote, "\\", Pos),
-                        '`' => new Token(TokenType.Quasiquote, "`", Pos), 
-                        ',' => new Token(TokenType.Unquote, ",", Pos),
-                        
-                        _ => throw new ParseException("Unexpected token", Pos)
-                    });
-                    Pos++;
-                }
+                else if (LexSimpleTokens(list)) { }
                 else
                 {
                     throw new ParseException("Unexpected token", Pos);

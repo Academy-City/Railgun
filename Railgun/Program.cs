@@ -3,7 +3,6 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using Cocona;
-using Railgun.AspNetCore;
 using Railgun.Grammar;
 using Railgun.Grammar.Sweet;
 using Railgun.Runtime;

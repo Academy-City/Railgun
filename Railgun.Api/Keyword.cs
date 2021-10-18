@@ -1,7 +1,4 @@
 ﻿namespace Railgun.Api
 {
-    public class Keyword
-    {
-        
-    }
+    public record Keyword(string Name);
 }
