@@ -154,16 +154,41 @@ namespace Railgun.Runtime
             // TODO: Caching
             NewFn("invoke-method", xs =>
             {
-                var mn = xs[0].GetType().GetMethod((string) xs[1]);
-                return mn!.Invoke(xs[0], xs.Skip(2).ToArray());
+                var parameters = xs.Skip(2).ToArray();
+                return TryFindMethod(xs[0] as Type, xs[1] as string, parameters)!.Invoke(xs[0], parameters);
             });
             NewFn("invoke-static-method", xs =>
             {
-                var mn = ((Type) xs[0]).GetMethod((string) xs[1]);
-                return mn!.Invoke(null, xs.Skip(2).ToArray());
+                var parameters = xs.Skip(2).ToArray();
+                return TryFindMethod(xs[0] as Type, xs[1] as string, parameters)!.Invoke(null, parameters);
             });
             
             RunProgram(new SweetParser(LoadEmbeddedFile("Railgun.core.core.rgx")).ParseSweetProgram());
+        }
+
+        private static MethodInfo TryFindMethod(Type type, string name, IEnumerable<object> parameters)
+        {
+            return TryFindMethod(type, name, parameters.Select(obj => obj?.GetType()).ToArray());
+        }
+
+        private static MethodInfo TryFindMethod(Type type, string name, IReadOnlyList<Type> parameters)
+        {
+            return type.GetMethods().FirstOrDefault(m =>
+            {
+                if (m.Name != name) return false;
+                var mParams = m.GetParameters();
+                if (mParams.Length < parameters.Count) return false;
+                for (var i = 0; i < mParams.Length; i++)
+                {
+                    var p = mParams[i];
+                    if (i >= parameters.Count && p.IsOptional) continue;
+                    if (parameters[i] != null && !p.ParameterType.IsAssignableFrom(parameters[i]))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            });
         }
 
         private static bool TryGetMacro(object ex, IEnvironment env, out IRailgunClosure mac)

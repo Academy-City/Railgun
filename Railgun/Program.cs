@@ -62,14 +62,8 @@ namespace Railgun
             }
         }
 
-        private static object[] ReadProgram(string path)
-        {
-            var program = File.ReadAllText(path);
-            return new Parser(program).ParseProgram();
-        }
-        
         [Command("run", Description = "Runs the Railgun project or script.")]
-        public void Run(string entry = "./main")
+        public void Run([Argument]string entry = "./main")
         {
             // var sw = new Stopwatch();
             // sw.Start();

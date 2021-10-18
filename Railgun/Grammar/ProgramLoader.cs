@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Cocona;
 using Railgun.Grammar.Sweet;
@@ -40,19 +41,32 @@ namespace Railgun.Grammar
             BetterConsole.PrintColored(ConsoleColor.Red, content);
         }
         
-        public static object[] LoadProgram(string path)
+        public static IEnumerable<object> LoadProgram(string path)
         {
             var sourceText = "";
             try
             {
-                if (File.Exists(path + ".rgx"))
+                var dir = Path.GetDirectoryName(path);
+                var file = Path.GetFileNameWithoutExtension(path);
+                var ext = Path.GetExtension(path);
+                var hasNoExt = string.IsNullOrEmpty(ext);
+
+                if (ext is ".⚡" || hasNoExt && File.Exists(Path.Join(dir, file + ".⚡")))
                 {
-                    sourceText = File.ReadAllText(path + ".rgx");
+                    sourceText = File.ReadAllText(Path.Join(dir, file + ".⚡"));
                     return new SweetParser(sourceText).ParseSweetProgram();
                 }
-
-                sourceText = File.ReadAllText(path + ".rg");
-                return new Parser(sourceText).ParseProgram();
+                if (ext is ".rgx" || hasNoExt && File.Exists(Path.Join(dir, file + ".rgx")))
+                {
+                    sourceText = File.ReadAllText(Path.Join(dir, file + ".rgx"));
+                    return new SweetParser(sourceText).ParseSweetProgram();
+                }
+                if (ext is ".rg" || File.Exists(Path.Join(dir, file + ".rg")))
+                {
+                    sourceText = File.ReadAllText(Path.Join(dir, file + ".rg"));
+                    return new Parser(sourceText).ParseProgram();
+                }
+                throw new FileNotFoundException($"Could not find file '{path}'", path);
             }
             catch (ParseException ex)
             {
