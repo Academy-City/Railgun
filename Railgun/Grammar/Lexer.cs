@@ -179,7 +179,7 @@ namespace Railgun.Grammar
                 {
                     Pos++;
                 }
-                else if (Current == '#') // comments
+                else if (Current == ';') // comments
                 {
                     Pos++;
                     while (Pos < Source.Length && Current != '\n')

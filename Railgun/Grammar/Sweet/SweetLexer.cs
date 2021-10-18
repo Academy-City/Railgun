@@ -23,7 +23,7 @@ namespace Railgun.Grammar.Sweet
 
                 switch (Current)
                 {
-                    case '#':
+                    case ';':
                         Pos++;
                         while (Pos < Source.Length && Current != '\n')
                         {
@@ -81,7 +81,7 @@ namespace Railgun.Grammar.Sweet
                         TokenizeWhitespace(list);
                     }
                 }
-                else if (Current == '#') // comments
+                else if (Current == ';') // comments
                 {
                     Pos++;
                     while (Pos < Source.Length && Current != '\n')
