@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Newtonsoft.Json;
 using Railgun.Api;
 using Railgun.BytecodeRuntime;
 using Railgun.Grammar;
@@ -73,6 +74,14 @@ namespace Railgun.Runtime
                 return Seq.Create(xs.SelectMany(x => (Seq) x));
             });
 
+            NewFn("parse-program", x => new Parser((string) x[0]).ParseProgram());
+            NewFn("eval-program", x =>
+            {
+                var env = x.Length == 2 ? x[1] as IEnvironment : Globals;
+                RunProgram((object[]) x[0], env);
+                return null;
+            });
+            
             NewFn("repr", x => RailgunLibrary.Repr(x[0]));
             NewFn("print", x =>
             {
@@ -129,7 +138,7 @@ namespace Railgun.Runtime
             {
                 var seed = xs[0];
                 return xs.Skip(1).Aggregate(seed, (current, x) =>
-                    ((IDottable) current).DotGet((string) x) );
+                    ((IDottable) current).DotGet((string) x));
             });
             
             NewFn("use", xs =>
@@ -234,7 +243,6 @@ namespace Railgun.Runtime
             if (topLevel)
             {
                 ex = ExpandMacros(ex, env);
-                // Console.WriteLine(RailgunLibrary.Repr(ex));
             }
 
             var bc = new List<IByteCode>();
