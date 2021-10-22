@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Newtonsoft.Json;
 using Railgun.Api;
 using Railgun.BytecodeRuntime;
 using Railgun.Grammar;
@@ -22,6 +21,7 @@ namespace Railgun.Runtime
         }
         
         private readonly string _workingDirectory;
+        private readonly Assembly[] _assemblies;
         public readonly RailgunEnvironment Globals = new();
 
         private void NewFn(string name, Func<object[], object> body)
@@ -33,10 +33,27 @@ namespace Railgun.Runtime
         {
             Globals[name] = new BuiltinClosure(body, true);
         }
-        
+
+        public Type LoadType(string typeName)
+        {
+            var t = Type.GetType(typeName);
+            if (t != null)
+            {
+                return t;
+            }
+
+            return _assemblies.Select(assembly => assembly.GetType(typeName))
+                .FirstOrDefault(tn => tn != null);
+        }
+
         public RailgunRuntime(string workingDirectory = "")
         {
             _workingDirectory = workingDirectory;
+            var dllDirectory = Path.Join(workingDirectory, ".railgun/dlls");
+            if (Directory.Exists(dllDirectory))
+            {
+                _assemblies = Directory.GetFiles(dllDirectory).Select(Assembly.LoadFile).ToArray();
+            }
 
             Globals["true"] = true;
             Globals["false"] = false;
@@ -88,11 +105,27 @@ namespace Railgun.Runtime
                 Console.WriteLine(x[0]);
                 return null;
             });
-            NewFn("idx", x =>
+            NewFn("get", x =>
             {
                 var coll = (dynamic) x[0];
                 var i = (dynamic) x[1];
                 return coll[i];
+            });
+            
+            NewFn("merge-dict", x =>
+            {
+                var baseDict = (Dictionary<object, object>) x[0];
+                var dict = (Dictionary<object, object>) x[1];
+                var d = new Dictionary<object, object>();
+                foreach (var (k, v) in baseDict)
+                {
+                    d[k] = v;
+                }
+                foreach (var (k, v) in dict)
+                {
+                    d[k] = v;
+                }
+                return d;
             });
 
             NewFn("exit", x =>
@@ -155,7 +188,7 @@ namespace Railgun.Runtime
             NewMacro("quote", x => new QuoteExpr(x[0]));
             
             // externals
-            NewFn("load-type", xs => Type.GetType((string) xs[0]));
+            NewFn("load-type", xs => LoadType((string) xs[0]));
             NewFn("invoke-ctor", xs => Activator.CreateInstance(
                 (Type) xs[0],
                 xs.Skip(1).ToArray()
@@ -168,6 +201,10 @@ namespace Railgun.Runtime
             });
             NewFn("invoke-static-method", xs =>
             {
+                if (xs[1] is Keyword k)
+                {
+                    xs[1] = k.Name;
+                }
                 var parameters = xs.Skip(2).ToArray();
                 return TryFindMethod(xs[0] as Type, xs[1] as string, parameters)!.Invoke(null, parameters);
             });
@@ -222,7 +259,7 @@ namespace Railgun.Runtime
             return false;
         }
 
-        private object ExpandMacros(object ex, IEnvironment env)
+        private static object ExpandMacros(object ex, IEnvironment env)
         {
             while (ex is Cell c && TryGetMacro(c.Head, env, out var mac))
             {
