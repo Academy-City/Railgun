@@ -4,6 +4,11 @@
 
 The main repository for Railgun, a modern take on Lisp with a cleaner syntax and eventually, a homoiconic type system. Railgun is a Lisp with access to the full power of the Lisp ecosystem.
 
+## Installation
+See [Nightly Releases.](https://github.com/Academy-City/Railgun/releases/tag/nightly)
+
+Railgun can also be used as an embedded Library: A NuGet package will be published soon.
+
 ## Expressions
 ```rg
 ; comments are written with a ';'

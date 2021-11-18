@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Railgun.Grammar.Sweet
 {
@@ -38,7 +37,6 @@ namespace Railgun.Grammar.Sweet
                     default:
                         return Pos - n;
                 }
-                
             }
         }
 
