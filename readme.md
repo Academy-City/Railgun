@@ -10,6 +10,8 @@ See [Nightly Releases.](https://github.com/Academy-City/Railgun/releases/tag/nig
 Railgun can also be used as an embedded Library: A NuGet package will be published soon.
 
 ## Expressions
+Railgun has two major syntactic constructs: Atoms and Composites.
+
 ```rg
 ; comments are written with a ';'
 42 ; integers
@@ -17,6 +19,7 @@ Railgun can also be used as an embedded Library: A NuGet package will be publish
 (print "hello, world") ; a sequence, with the callable as the first, and arguments as rest
 ```
 
+### Sweet-Expressions
 Railgun supports sweet-expressions, provided that you use the .rgx or .⚡ file extension. This allows the outermost parentheses to be inferred.
 
 For example, a factorial without sweet-expressions:
