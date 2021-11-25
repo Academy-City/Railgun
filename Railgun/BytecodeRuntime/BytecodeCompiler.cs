@@ -43,7 +43,7 @@ namespace Railgun.BytecodeRuntime
                         var fv = stack.Pop();
                         if (fv is not IRailgunClosure fn)
                         {
-                            throw new RailgunRuntimeException($"{fv.GetType()} is not a function");
+                            throw new RuntimeException($"{fv.GetType()} is not a function");
                         }
                         var res = fn.Eval(p);
                         stack.Push(res);

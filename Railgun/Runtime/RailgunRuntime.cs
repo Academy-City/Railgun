@@ -54,7 +54,7 @@ namespace Railgun.Runtime
             {
                 _assemblies = Directory.GetFiles(dllDirectory).Select(Assembly.LoadFile).ToArray();
             }
-
+            
             Globals["true"] = true;
             Globals["false"] = false;
             Globals["nil"] = Nil.Value;
@@ -138,7 +138,7 @@ namespace Railgun.Runtime
             {
                 if (xs.Length % 2 != 0)
                 {
-                    throw new RailgunRuntimeException("dict must have even number of values");
+                    throw new RuntimeException("dict must have even number of values");
                 }
                 var dict = new Dictionary<object, object>();
                 for (var i = 0; i < xs.Length; i+=2)
@@ -247,6 +247,7 @@ namespace Railgun.Runtime
                     return true;
                 case NameExpr nex:
                 {
+                    if (!env.Exists(nex.Name)) break;
                     var x = env[nex.Name];
                     if (x is IRailgunClosure{IsMacro: true} m2)
                     {

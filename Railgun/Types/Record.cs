@@ -10,7 +10,6 @@ namespace Railgun.Types
         public Dictionary<string, int> MembersToOffset { get; }
         public StructType(IReadOnlyList<string> members)
         {
-            // Console.WriteLine(JsonConvert.SerializeObject(members));
             var dict = new Dictionary<string, int>();
             for (var i = 0; i < members.Count; i++)
             {

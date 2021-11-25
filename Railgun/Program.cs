@@ -65,19 +65,19 @@ namespace Railgun
         [Command("run", Description = "Runs the Railgun project or script.")]
         public void Run([Argument]string entry = "./main")
         {
-            // var sw = new Stopwatch();
-            // sw.Start();
-            
-            var workingDir = Directory.GetCurrentDirectory();
-            var runtime = new RailgunRuntime(workingDir);
-
-            entry = Path.Join(workingDir, entry);
-            var program = ProgramLoader.LoadProgram(entry);
-            
-            runtime.RunProgram(program);
-            
-            // sw.Stop();
-            // Console.WriteLine(sw.Elapsed);
+            try
+            {
+                var workingDir = Directory.GetCurrentDirectory();
+                var runtime = new RailgunRuntime(workingDir);
+                entry = Path.Join(workingDir, entry);
+                var program = ProgramLoader.LoadProgram(entry);
+                runtime.RunProgram(program);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e);
+                throw new CommandExitedException(1);
+            }
         }
     }
 }

@@ -57,7 +57,7 @@ namespace Railgun.BytecodeRuntime
             var ac = args.Count();
             if (ac != Args.Length && IsVariadic != "" && ac < Args.Length)
             {
-                throw new RailgunRuntimeException(
+                throw new RuntimeException(
                     $"Wrong number of args: Requested {Args.Length}, Got {ac}");
             }
 

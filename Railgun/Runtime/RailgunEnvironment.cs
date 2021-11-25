@@ -5,6 +5,7 @@ namespace Railgun.Runtime
     public interface IEnvironment
     {
         object this[string key] { get; set; }
+        bool Exists(string key);
         object Set(string key, object value);
     }
     
@@ -20,8 +21,27 @@ namespace Railgun.Runtime
 
         public object this[string key]
         {
-            get => _dict.TryGetValue(key, out var v) ? v : _parent?[key];
+            get
+            {
+                if (_dict.TryGetValue(key, out var v))
+                {
+                    return v;
+                }
+
+                if (_parent == null)
+                {
+                    throw new NameException($"{key} is not defined");
+                }
+
+                return _parent[key];
+            }
             set => _dict[key] = value;
+        }
+
+        public bool Exists(string key)
+        {
+            if (_dict.ContainsKey(key)) return true;
+            return _parent != null && _parent.Exists(key);
         }
 
         public object Set(string key, object value)
