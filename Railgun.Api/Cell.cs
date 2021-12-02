@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Railgun.Api
 {
-    public abstract class Seq : IEnumerable<object>
+    public abstract record Seq : IEnumerable<object>
     {
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         
@@ -44,13 +44,13 @@ namespace Railgun.Api
         }
     }
 
-    public class Nil : Seq
+    public record Nil : Seq
     {
         private Nil() { }
         public static readonly Nil Value = new();
     }
 
-    public class Cell : Seq
+    public record Cell : Seq
     {
         public object Head { get; set; }
         public Seq Tail { get; set; }
